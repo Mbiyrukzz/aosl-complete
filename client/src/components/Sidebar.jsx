@@ -7,11 +7,16 @@ import {
   Settings,
   LogOut,
   Shield,
-  Globe,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import { auth } from '../services/firebase'
 import { useUser } from '../hooks/useUser'
+import { useTheme } from '../hooks/useTheme'
 import { ROUTES, ROLES } from '../constants/routes'
+
+// Optional: if you have a logo file, uncomment the import
+// import logo from '../assets/logo.svg'
 
 const Aside = styled.aside`
   position: fixed;
@@ -52,7 +57,7 @@ const Brand = styled(NavLink)`
   }
 `
 
-const LogoOrb = styled.div`
+const LogoBox = styled.div`
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -60,8 +65,18 @@ const LogoOrb = styled.div`
   height: 36px;
   background: white;
   color: #0a0a0a;
-  border-radius: 50%;
+  border-radius: 10px;
   flex-shrink: 0;
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: inherit;
+  }
 `
 
 const Nav = styled.nav`
@@ -119,6 +134,9 @@ const Footer = styled.div`
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   padding-top: 0.75rem;
   margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 `
 
 const UserChip = styled.div`
@@ -134,7 +152,7 @@ const UserChip = styled.div`
   }
 `
 
-const LogoutButton = styled.button`
+const FooterButton = styled.button`
   display: flex;
   align-items: center;
   gap: 0.85rem;
@@ -148,6 +166,7 @@ const LogoutButton = styled.button`
   font-size: 0.93rem;
   font-weight: 500;
   text-align: left;
+  font-family: inherit;
 
   &:hover {
     background: rgba(255, 255, 255, 0.06);
@@ -163,7 +182,9 @@ const LogoutButton = styled.button`
 
 const Sidebar = () => {
   const { user, profile } = useUser()
+  const { mode, toggleTheme } = useTheme()
   const navigate = useNavigate()
+
   const isStaff = profile?.role === ROLES.STAFF || profile?.role === ROLES.ADMIN
 
   const handleLogout = async () => {
@@ -174,10 +195,10 @@ const Sidebar = () => {
   return (
     <Aside>
       <Brand to={ROUTES.HOME}>
-        <LogoOrb>
-          <Globe size={18} />
-        </LogoOrb>
-        <span className="label">YourBrand</span>
+        <LogoBox>
+          <img src="aos.png" alt="Logo" />
+        </LogoBox>
+        <span className="label">AOSL</span>
       </Brand>
 
       <Nav>
@@ -193,7 +214,7 @@ const Sidebar = () => {
         {isStaff && (
           <>
             <Section>Admin</Section>
-            <Item to="/admin/issues">
+            <Item to={ROUTES.ADMIN_ISSUES}>
               <Shield size={18} />
               <span className="label">All Issues</span>
             </Item>
@@ -209,10 +230,18 @@ const Sidebar = () => {
 
       <Footer>
         <UserChip>{user?.email}</UserChip>
-        <LogoutButton onClick={handleLogout}>
+
+        <FooterButton onClick={toggleTheme} aria-label="Toggle theme">
+          {mode === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          <span className="label">
+            {mode === 'light' ? 'Dark mode' : 'Light mode'}
+          </span>
+        </FooterButton>
+
+        <FooterButton onClick={handleLogout}>
           <LogOut size={18} />
           <span className="label">Logout</span>
-        </LogoutButton>
+        </FooterButton>
       </Footer>
     </Aside>
   )

@@ -10,6 +10,7 @@ export const ROUTES = {
   SUPPORT: '/support',
   SUPPORT_NEW: '/support/new',
   SUPPORT_DETAIL: '/support/:id',
+  ADMIN_ISSUES: '/admin/issues',
 }
 
 // Helper so consumers don't hardcode `/support/${id}` strings everywhere

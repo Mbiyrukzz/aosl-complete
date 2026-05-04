@@ -155,18 +155,34 @@ export const addComment = async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' })
     }
 
+    // Push the comment
     issue.comments.push({
       text: text.trim(),
       authorUid: req.user.uid,
       authorEmail: req.user.email,
     })
 
+    // Auto-progress: when a staff member comments on an OPEN issue,
+    // flip it to in_progress. Don't override resolved/closed/already-in-progress.
+    let statusChanged = false
+    if (isStaffRole(req.user.role) && issue.status === 'open') {
+      issue.status = 'in_progress'
+      statusChanged = true
+    }
+
     await issue.save()
     const payload = issue.toJSON()
 
     if (req.io) {
+      // Comment event always fires
       req.io.to(`user:${issue.createdBy}`).emit('issue:commented', payload)
       req.io.to('staff').emit('issue:commented', payload)
+
+      // Status change event also fires if we auto-progressed
+      if (statusChanged) {
+        req.io.to(`user:${issue.createdBy}`).emit('issue:updated', payload)
+        req.io.to('staff').emit('issue:updated', payload)
+      }
     }
 
     res.json({ issue: payload })

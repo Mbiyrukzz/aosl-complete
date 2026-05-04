@@ -1,6 +1,8 @@
 import { verifyFirebaseToken } from '../middleware/verifyFirebaseToken.js'
+import { isStaff } from '../middleware/isStaff.js'
+import { listStaff } from '../controllers/users.controller.js'
 
-const profileRoute = {
+export const profileRoute = {
   path: '/users/profile',
   method: 'get',
   middleware: [verifyFirebaseToken],
@@ -9,4 +11,9 @@ const profileRoute = {
   },
 }
 
-export { profileRoute }
+export const listStaffRoute = {
+  path: '/users/staff',
+  method: 'get',
+  middleware: [verifyFirebaseToken, isStaff],
+  handler: listStaff,
+}

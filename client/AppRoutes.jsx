@@ -16,6 +16,7 @@ import { ROUTES, ROLES } from './src/constants/routes'
 import MainLayout from './src/layouts/MainLayout'
 import DashboardLayout from './src/layouts/DashboardLayout'
 import ProtectedRoute from './src/components/ProtectedRoute'
+import AdminIssues from './src/pages/AdminIssues'
 
 const AppRoutes = () => {
   return (
@@ -46,7 +47,7 @@ const AppRoutes = () => {
         element={<ProtectedRoute allowedRoles={[ROLES.STAFF, ROLES.ADMIN]} />}
       >
         <Route element={<DashboardLayout />}>
-          {/* Future admin views go here */}
+          <Route path={ROUTES.ADMIN_ISSUES} element={<AdminIssues />} />
         </Route>
       </Route>
 

@@ -27,7 +27,11 @@ const io = new Server(server, {
 initializeSockets(io)
 
 // 3. Global middleware
-app.use(helmet())
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }),
+)
 app.use(cors({ origin: CLIENT_URL, credentials: true }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))

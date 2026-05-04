@@ -17,16 +17,26 @@ export const useAuthedRequest = () => {
       if (!token) throw new Error('No auth token available')
 
       const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`
+      const isFormData = body instanceof FormData
+
+      // Build headers — Authorization always; let axios handle Content-Type for FormData
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        ...(config.headers || {}),
+      }
+
+      // Don't let anyone set Content-Type for FormData — axios needs to set the boundary
+      if (isFormData) {
+        delete headers['Content-Type']
+        delete headers['content-type']
+      }
 
       const response = await axios({
         method,
         url: fullUrl,
         data: body,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          ...(config.headers || {}),
-        },
         ...config,
+        headers, // headers last so they're not overridden by ...config
       })
 
       return response.data

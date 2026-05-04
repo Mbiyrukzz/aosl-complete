@@ -5,13 +5,16 @@ import { useSocket } from '../hooks/useSocket'
 import { useUser } from '../hooks/useUser'
 
 export const IssuesProvider = ({ children }) => {
-  const { user } = useUser()
+  const { user, profile } = useUser()
   const { isReady, get, post, patch } = useAuthedRequest()
   const socket = useSocket()
 
   const [issues, setIssues] = useState([])
+  const [staff, setStaff] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  const isStaffUser = profile?.role === 'staff' || profile?.role === 'admin'
 
   const fetchIssues = useCallback(async () => {
     if (!isReady) return
@@ -27,22 +30,30 @@ export const IssuesProvider = ({ children }) => {
     }
   }, [isReady, get])
 
+  // Fetch staff list — only for staff/admin users
+  const fetchStaff = useCallback(async () => {
+    if (!isReady || !isStaffUser) return
+    try {
+      const data = await get('/api/users/staff')
+      setStaff(data.users)
+    } catch (err) {
+      console.error('Failed to fetch staff list:', err)
+    }
+  }, [isReady, isStaffUser, get])
+
   useEffect(() => {
     if (!user) {
       setIssues([])
+      setStaff([])
       return
     }
     fetchIssues()
-  }, [user, fetchIssues])
+    fetchStaff()
+  }, [user, fetchIssues, fetchStaff])
 
   const createIssue = useCallback(
     async (formData) => {
-      // formData can be plain object or FormData (for file uploads)
-      const isFile = formData instanceof FormData
-      const config = isFile
-        ? { headers: { 'Content-Type': 'multipart/form-data' } }
-        : {}
-      const data = await post('/api/issues', formData, config)
+      const data = await post('/api/issues', formData)
       return data.issue
     },
     [post],
@@ -99,6 +110,7 @@ export const IssuesProvider = ({ children }) => {
 
   const value = {
     issues,
+    staff,
     loading,
     error,
     refetch: fetchIssues,
