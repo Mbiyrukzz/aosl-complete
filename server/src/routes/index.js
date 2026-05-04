@@ -8,7 +8,13 @@ import {
   updateIssueStatusRoute,
   assignIssueRoute,
   addCommentRoute,
+  shareIssueRoute,
 } from './issuesRoutes.js'
+import {
+  listNotificationsRoute,
+  markAllNotificationsReadRoute,
+  markNotificationReadRoute,
+} from './notificationRoutes.js'
 
 const routes = [
   healthRoute,
@@ -21,6 +27,11 @@ const routes = [
   updateIssueStatusRoute,
   assignIssueRoute,
   addCommentRoute,
+
+  shareIssueRoute,
+  listNotificationsRoute,
+  markNotificationReadRoute,
+  markAllNotificationsReadRoute,
 ]
 
 export default routes

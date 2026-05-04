@@ -1,4 +1,9 @@
 import { Issue } from '../models/Issue.js'
+import { User } from '../models/User.js'
+import {
+  createNotification,
+  createNotificationsBulk,
+} from '../services/notifications.service.js'
 
 const isStaffRole = (role) => role === 'staff' || role === 'admin'
 
@@ -51,7 +56,6 @@ export const createIssue = async (req, res) => {
         .json({ error: 'Title and description are required' })
     }
 
-    // Build attachments from uploaded files
     const attachments = (req.files || []).map((file) => ({
       filename: file.filename,
       originalName: file.originalname,
@@ -74,6 +78,25 @@ export const createIssue = async (req, res) => {
     if (req.io) {
       req.io.to(`user:${req.user.uid}`).emit('issue:created', payload)
       req.io.to('staff').emit('issue:created', payload)
+
+      // Notify all staff/admin of new issues
+      const staffUsers = await User.find({
+        role: { $in: ['staff', 'admin'] },
+      })
+        .select('uid')
+        .lean()
+
+      const notifPayloads = staffUsers.map((s) => ({
+        recipient: s.uid,
+        type: 'issue_assigned', // reuse this type, or add 'issue_created'
+        issueId: issue._id,
+        issueTitle: issue.title,
+        actorUid: req.user.uid,
+        actorEmail: req.user.email,
+        message: `New ${priority} priority issue from ${req.user.email}`,
+      }))
+
+      await createNotificationsBulk(req.io, notifPayloads)
     }
 
     res.status(201).json({ issue: payload })
@@ -87,7 +110,6 @@ export const updateIssueStatus = async (req, res) => {
   try {
     const { id } = req.params
     const { status } = req.body
-
     const valid = ['open', 'in_progress', 'resolved', 'closed']
     if (!valid.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' })
@@ -104,6 +126,17 @@ export const updateIssueStatus = async (req, res) => {
     if (req.io) {
       req.io.to(`user:${issue.createdBy}`).emit('issue:updated', issue)
       req.io.to('staff').emit('issue:updated', issue)
+
+      // Notify the creator
+      await createNotification(req.io, {
+        recipient: issue.createdBy,
+        type: 'issue_status_changed',
+        issueId: issue._id,
+        issueTitle: issue.title,
+        actorUid: req.user.uid,
+        actorEmail: req.user.email,
+        message: `${req.user.email} changed status to "${status.replace('_', ' ')}"`,
+      })
     }
 
     res.json({ issue })
@@ -116,7 +149,7 @@ export const updateIssueStatus = async (req, res) => {
 export const assignIssue = async (req, res) => {
   try {
     const { id } = req.params
-    const { assignedTo } = req.body // Firebase UID of staff member, or null to unassign
+    const { assignedTo } = req.body
 
     const issue = await Issue.findByIdAndUpdate(
       id,
@@ -129,6 +162,19 @@ export const assignIssue = async (req, res) => {
     if (req.io) {
       req.io.to(`user:${issue.createdBy}`).emit('issue:updated', issue)
       req.io.to('staff').emit('issue:updated', issue)
+
+      // Notify the new assignee
+      if (assignedTo) {
+        await createNotification(req.io, {
+          recipient: assignedTo,
+          type: 'issue_assigned',
+          issueId: issue._id,
+          issueTitle: issue.title,
+          actorUid: req.user.uid,
+          actorEmail: req.user.email,
+          message: `${req.user.email} assigned an issue to you`,
+        })
+      }
     }
 
     res.json({ issue })
@@ -150,20 +196,16 @@ export const addComment = async (req, res) => {
     const issue = await Issue.findById(id)
     if (!issue) return res.status(404).json({ error: 'Issue not found' })
 
-    // Clients can only comment on their own issues
     if (!isStaffRole(req.user.role) && issue.createdBy !== req.user.uid) {
       return res.status(403).json({ error: 'Forbidden' })
     }
 
-    // Push the comment
     issue.comments.push({
       text: text.trim(),
       authorUid: req.user.uid,
       authorEmail: req.user.email,
     })
 
-    // Auto-progress: when a staff member comments on an OPEN issue,
-    // flip it to in_progress. Don't override resolved/closed/already-in-progress.
     let statusChanged = false
     if (isStaffRole(req.user.role) && issue.status === 'open') {
       issue.status = 'in_progress'
@@ -174,20 +216,103 @@ export const addComment = async (req, res) => {
     const payload = issue.toJSON()
 
     if (req.io) {
-      // Comment event always fires
       req.io.to(`user:${issue.createdBy}`).emit('issue:commented', payload)
       req.io.to('staff').emit('issue:commented', payload)
 
-      // Status change event also fires if we auto-progressed
       if (statusChanged) {
         req.io.to(`user:${issue.createdBy}`).emit('issue:updated', payload)
         req.io.to('staff').emit('issue:updated', payload)
       }
+
+      // Notify creator + assignee (if any) of the new comment
+      const recipients = new Set()
+      if (issue.createdBy !== req.user.uid) recipients.add(issue.createdBy)
+      if (issue.assignedTo && issue.assignedTo !== req.user.uid) {
+        recipients.add(issue.assignedTo)
+      }
+
+      const notifPayloads = [...recipients].map((recipient) => ({
+        recipient,
+        type: 'issue_commented',
+        issueId: issue._id,
+        issueTitle: issue.title,
+        actorUid: req.user.uid,
+        actorEmail: req.user.email,
+        message: `${req.user.email} commented on the issue`,
+      }))
+
+      await createNotificationsBulk(req.io, notifPayloads)
     }
 
     res.json({ issue: payload })
   } catch (err) {
     console.error('addComment error:', err)
     res.status(500).json({ error: 'Failed to add comment' })
+  }
+}
+
+export const shareIssue = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { recipientUid, recipientEmail } = req.body
+
+    if (!recipientUid && !recipientEmail) {
+      return res
+        .status(400)
+        .json({ error: 'recipientUid or recipientEmail required' })
+    }
+
+    const issue = await Issue.findById(id).lean()
+    if (!issue) return res.status(404).json({ error: 'Issue not found' })
+
+    // Resolve recipient
+    let recipient
+    if (recipientUid) {
+      recipient = await User.findOne({ uid: recipientUid }).lean()
+    } else {
+      recipient = await User.findOne({
+        email: recipientEmail.toLowerCase(),
+      }).lean()
+    }
+
+    if (!recipient) {
+      return res.status(404).json({ error: 'Recipient not found' })
+    }
+
+    // Permission: only the creator or staff can share an issue
+    if (!isStaffRole(req.user.role) && issue.createdBy !== req.user.uid) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    // Recipient must be staff to view (since regular clients can only see their own)
+    // OR the creator (already has access)
+    const recipientIsStaff =
+      recipient.role === 'staff' || recipient.role === 'admin'
+    const recipientIsCreator = recipient.uid === issue.createdBy
+
+    if (!recipientIsStaff && !recipientIsCreator) {
+      return res.status(400).json({
+        error: 'Can only share with staff or the issue owner',
+      })
+    }
+
+    const notification = await createNotification(req.io, {
+      recipient: recipient.uid,
+      type: 'issue_shared',
+      issueId: issue._id,
+      issueTitle: issue.title,
+      actorUid: req.user.uid,
+      actorEmail: req.user.email,
+      message: `${req.user.email} shared an issue with you`,
+    })
+
+    res.json({
+      success: true,
+      notification: notification?.toObject() || null,
+      recipient: { uid: recipient.uid, email: recipient.email },
+    })
+  } catch (err) {
+    console.error('shareIssue error:', err)
+    res.status(500).json({ error: 'Failed to share issue' })
   }
 }

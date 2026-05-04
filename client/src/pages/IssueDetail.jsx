@@ -12,11 +12,13 @@ import {
   CheckCircle2,
   CircleSlash,
   Activity,
+  Share2,
 } from 'lucide-react'
 import { useIssues } from '../hooks/useIssues'
 import { useUser } from '../hooks/useUser'
 import { ROUTES } from '../constants/routes'
 import IssueDetailSkeleton from '../components/IssueDetailSkeleton'
+import ShareModal from '../components/ShareModal'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
 
@@ -62,6 +64,26 @@ const Grid = styled.div`
 
   @media (max-width: 880px) {
     grid-template-columns: 1fr;
+  }
+`
+
+const ShareButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.text};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+  font-weight: 500;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.18s ease;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
   }
 `
 
@@ -439,6 +461,7 @@ const IssueDetail = () => {
 
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
 
   const issue = issues.find((i) => i._id === id)
 
@@ -468,7 +491,12 @@ const IssueDetail = () => {
         <BackLink to={ROUTES.SUPPORT}>
           <ArrowLeft size={16} /> All issues
         </BackLink>
-        <IssueId>#{issue._id.slice(-6)}</IssueId>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <ShareButton onClick={() => setShareOpen(true)}>
+            <Share2 size={14} /> Share
+          </ShareButton>
+          <IssueId>#{issue._id.slice(-6)}</IssueId>
+        </div>
       </TopBar>
 
       <Header>
@@ -598,6 +626,11 @@ const IssueDetail = () => {
           )}
         </SidePanel>
       </Grid>
+      <ShareModal
+        issueId={issue._id}
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+      />
     </Wrapper>
   )
 }

@@ -1,6 +1,8 @@
 import { ThemeProvider } from './ThemeProvider'
 import { UserProvider } from './UserProvider'
+import { SocketProvider } from './SocketProvider'
 import { IssuesProvider } from './IssuesProvider'
+import { NotificationsProvider } from './NotificationsProvider'
 import GlobalStyles from '../styles/GlobalStyles'
 
 function AppProvider({ children }) {
@@ -8,7 +10,11 @@ function AppProvider({ children }) {
     <ThemeProvider>
       <GlobalStyles />
       <UserProvider>
-        <IssuesProvider>{children}</IssuesProvider>
+        <SocketProvider>
+          <NotificationsProvider>
+            <IssuesProvider>{children}</IssuesProvider>
+          </NotificationsProvider>
+        </SocketProvider>
       </UserProvider>
     </ThemeProvider>
   )

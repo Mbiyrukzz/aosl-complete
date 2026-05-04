@@ -1,6 +1,6 @@
 import { NavLink, Link } from 'react-router-dom'
 import styled, { css } from 'styled-components'
-import { Sun, Moon, MessageCircle, Globe } from 'lucide-react'
+import { Sun, Moon, MessageCircle } from 'lucide-react'
 import { ROUTES } from '../constants/routes'
 import { useUser } from '../hooks/useUser'
 import { useTheme } from '../hooks/useTheme'
@@ -19,7 +19,7 @@ const Pill = styled.nav`
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.5rem;
   background: ${({ theme }) =>
     theme.mode === 'light' ? '#0a0a0a' : '#1a1f2e'};
   border: 1px solid
@@ -39,13 +39,20 @@ const Logo = styled(Link)`
   height: 40px;
   border-radius: 50%;
   background: #ffffff;
-  color: #0a0a0a;
   text-decoration: none;
   flex-shrink: 0;
+  overflow: hidden;
   transition: transform 0.25s ease;
 
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
   &:hover {
-    transform: rotate(-15deg) scale(1.05);
+    transform: rotate(-8deg) scale(1.05);
   }
 `
 
@@ -149,8 +156,8 @@ const Navbar = () => {
   return (
     <NavWrapper>
       <Pill>
-        <Logo to={ROUTES.HOME} aria-label="Home">
-          <Globe size={20} strokeWidth={2.2} />
+        <Logo to={ROUTES.HOME} aria-label="Ashmif Office Solutions home">
+          <img src="aos.png" alt="AOS" />
         </Logo>
 
         <Links>

@@ -7,6 +7,7 @@ import {
   updateIssueStatus,
   assignIssue,
   addComment,
+  shareIssue,
 } from '../controllers/issues.controller.js'
 import { upload } from '../middleware/upload.js'
 
@@ -50,4 +51,11 @@ export const addCommentRoute = {
   method: 'post',
   middleware: [verifyFirebaseToken],
   handler: addComment,
+}
+
+export const shareIssueRoute = {
+  path: '/issues/:id/share',
+  method: 'post',
+  middleware: [verifyFirebaseToken],
+  handler: shareIssue,
 }

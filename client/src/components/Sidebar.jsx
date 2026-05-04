@@ -14,6 +14,7 @@ import { auth } from '../services/firebase'
 import { useUser } from '../hooks/useUser'
 import { useTheme } from '../hooks/useTheme'
 import { ROUTES, ROLES } from '../constants/routes'
+import NotificationsDropdown from './NotificationsDropdown'
 
 // Optional: if you have a logo file, uncomment the import
 // import logo from '../assets/logo.svg'
@@ -230,6 +231,8 @@ const Sidebar = () => {
 
       <Footer>
         <UserChip>{user?.email}</UserChip>
+
+        <NotificationsDropdown />
 
         <FooterButton onClick={toggleTheme} aria-label="Toggle theme">
           {mode === 'light' ? <Moon size={18} /> : <Sun size={18} />}
