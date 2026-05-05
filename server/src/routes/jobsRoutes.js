@@ -14,6 +14,7 @@ import {
   submitApplication,
   listApplications,
   updateApplicationStatus,
+  deleteApplication,
 } from '../controllers/applications.controller.js'
 
 // Public
@@ -82,4 +83,11 @@ export const updateApplicationStatusRoute = {
   method: 'patch',
   middleware: [verifyFirebaseToken, isStaff],
   handler: updateApplicationStatus,
+}
+
+export const deleteApplicationRoute = {
+  path: '/admin/applications/:id',
+  method: 'delete',
+  middleware: [verifyFirebaseToken, isStaff],
+  handler: deleteApplication,
 }

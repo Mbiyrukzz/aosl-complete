@@ -18,6 +18,7 @@ import {
 import { submitContactRoute } from './contactRoutes.js'
 import {
   createJobRoute,
+  deleteApplicationRoute,
   deleteJobRoute,
   getJobRoute,
   listAllJobsRoute,
@@ -27,6 +28,7 @@ import {
   updateApplicationStatusRoute,
   updateJobRoute,
 } from './jobsRoutes.js'
+import { deleteApplication } from '../controllers/applications.controller.js'
 
 const routes = [
   healthRoute,
@@ -56,6 +58,7 @@ const routes = [
   deleteJobRoute,
   listApplicationsRoute,
   updateApplicationStatusRoute,
+  deleteApplicationRoute,
 ]
 
 export default routes

@@ -5,6 +5,7 @@ import styled from 'styled-components'
 import { ArrowLeft, MapPin, Briefcase, Send } from 'lucide-react'
 import Modal from '../components/Modal'
 import { ROUTES } from '../constants/routes'
+import ApplicationForm from '../components/ApplicationForm'
 // import the ApplicationForm — easiest is to extract it to its own file,
 // or just re-implement here. For brevity I'll reuse the in-page version.
 
@@ -184,16 +185,8 @@ const JobDetail = () => {
   )
 }
 
-// Inline copy — for cleanest setup, extract this into components/ApplicationForm.jsx
 const ApplicationFormInline = (props) => {
-  // ...same as ApplicationForm in Careers.jsx
-  // I'll let you do this extraction since it's a copy-paste
-  return (
-    <p>
-      Extract ApplicationForm into components/ApplicationForm.jsx and import
-      here.
-    </p>
-  )
+  return <ApplicationForm {...props}></ApplicationForm>
 }
 
 export default JobDetail

@@ -793,7 +793,7 @@ const Home = () => {
               <span className="dot red" />
               <span className="dot yellow" />
               <span className="dot green" />
-              <span className="filename">ashmif.solutions</span>
+              <span className="filename">ashmif.com</span>
             </CodeChrome>
             <CodeBody>
               <span className="comment">{'// What we build'}</span>

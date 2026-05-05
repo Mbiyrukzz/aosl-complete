@@ -36,6 +36,20 @@ export const verifyEmail = async () => {
 }
 
 export const sendEmail = async ({ to, subject, html, text, replyTo }) => {
+  if (typeof html !== 'string' && html !== undefined) {
+    throw new Error(
+      `sendEmail: html must be a string, got ${typeof html} (${JSON.stringify(html).slice(0, 80)}...)`,
+    )
+  }
+  if (typeof text !== 'string' && text !== undefined) {
+    throw new Error(`sendEmail: text must be a string, got ${typeof text}`)
+  }
+  if (typeof subject !== 'string') {
+    throw new Error(
+      `sendEmail: subject must be a string, got ${typeof subject}`,
+    )
+  }
+
   const transport = getTransport()
   const from = `"Ashmif Office Solutions" <${process.env.GMAIL_USER}>`
 

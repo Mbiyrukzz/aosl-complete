@@ -624,7 +624,7 @@ const Contact = () => {
         kind: 'success',
         title: 'Message received',
         message:
-          'We sent a confirmation to your email. Expect a real human reply within one business day.',
+          'We sent a confirmation to your email. Expect a reply within one business day.',
       })
       setForm({
         name: '',
@@ -694,7 +694,7 @@ const Contact = () => {
               </span>
               <div className="body">
                 <div className="label">Email</div>
-                <div className="value">hello@ashmif.solutions</div>
+                <div className="value">hello@ashmif.com</div>
               </div>
               <ArrowUpRight className="arrow" size={16} />
             </ContactLink>

@@ -1,6 +1,12 @@
 import { Application } from '../models/Application.js'
 import { Job } from '../models/Job.js'
 import { sendEmail } from '../services/email.service.js'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // Public — submit an application (with CV file)
 export const submitApplication = async (req, res) => {
@@ -75,25 +81,47 @@ export const submitApplication = async (req, res) => {
   }
 }
 
-// Admin — list all applications
+// Admin — list all applications, with optional filters
 export const listApplications = async (req, res) => {
   try {
     const filter = {}
-    if (req.query.jobId) filter.jobId = req.query.jobId
-    if (req.query.status) filter.status = req.query.status
+
+    if (req.query.jobId) {
+      // Special case: 'general' means no jobId (general CV submissions)
+      filter.jobId = req.query.jobId === 'general' ? null : req.query.jobId
+    }
+    if (req.query.status && req.query.status !== 'all') {
+      filter.status = req.query.status
+    }
+    if (req.query.search) {
+      const term = req.query.search.trim()
+      if (term) {
+        filter.$or = [
+          { name: { $regex: term, $options: 'i' } },
+          { email: { $regex: term, $options: 'i' } },
+        ]
+      }
+    }
 
     const applications = await Application.find(filter)
       .sort({ createdAt: -1 })
-      .limit(200)
+      .limit(500)
       .lean()
-    res.json({ applications })
+
+    // Also return the list of jobs for the filter dropdown
+    const jobs = await Job.find({})
+      .select('_id title status')
+      .sort({ createdAt: -1 })
+      .lean()
+
+    res.json({ applications, jobs })
   } catch (err) {
     console.error('listApplications error:', err)
     res.status(500).json({ error: 'Failed to fetch applications' })
   }
 }
 
-// Admin — update application status
+// Admin — update status
 export const updateApplicationStatus = async (req, res) => {
   try {
     const { status } = req.body
@@ -107,11 +135,43 @@ export const updateApplicationStatus = async (req, res) => {
       { status },
       { new: true, runValidators: true },
     ).lean()
-    if (!application)
+
+    if (!application) {
       return res.status(404).json({ error: 'Application not found' })
+    }
+
     res.json({ application })
   } catch (err) {
     console.error('updateApplicationStatus error:', err)
     res.status(500).json({ error: 'Failed to update application' })
+  }
+}
+
+// Admin — delete (also removes the CV file from disk)
+export const deleteApplication = async (req, res) => {
+  try {
+    const application = await Application.findByIdAndDelete(
+      req.params.id,
+    ).lean()
+    if (!application) {
+      return res.status(404).json({ error: 'Application not found' })
+    }
+
+    // Best-effort delete the CV file
+    if (application.cvFilename) {
+      const cvPath = path.join(
+        __dirname,
+        '../../uploads/cvs',
+        application.cvFilename,
+      )
+      fs.unlink(cvPath, (err) => {
+        if (err) console.error('Failed to delete CV file:', err.message)
+      })
+    }
+
+    res.json({ success: true })
+  } catch (err) {
+    console.error('deleteApplication error:', err)
+    res.status(500).json({ error: 'Failed to delete application' })
   }
 }
