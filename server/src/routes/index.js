@@ -15,6 +15,18 @@ import {
   markAllNotificationsReadRoute,
   markNotificationReadRoute,
 } from './notificationRoutes.js'
+import { submitContactRoute } from './contactRoutes.js'
+import {
+  createJobRoute,
+  deleteJobRoute,
+  getJobRoute,
+  listAllJobsRoute,
+  listApplicationsRoute,
+  listOpenJobsRoute,
+  submitApplicationRoute,
+  updateApplicationStatusRoute,
+  updateJobRoute,
+} from './jobsRoutes.js'
 
 const routes = [
   healthRoute,
@@ -32,6 +44,18 @@ const routes = [
   listNotificationsRoute,
   markNotificationReadRoute,
   markAllNotificationsReadRoute,
+
+  submitContactRoute,
+
+  listOpenJobsRoute,
+  getJobRoute,
+  submitApplicationRoute,
+  listAllJobsRoute,
+  createJobRoute,
+  updateJobRoute,
+  deleteJobRoute,
+  listApplicationsRoute,
+  updateApplicationStatusRoute,
 ]
 
 export default routes

@@ -293,7 +293,7 @@ const Footer = () => {
               </a>
             </li>
             <li>
-              <a href="tel:+254700000000">
+              <a href="tel:+254758839829">
                 <Phone size={14} />
                 +254 758 839 829
               </a>

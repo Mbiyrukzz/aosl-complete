@@ -17,6 +17,7 @@ import MainLayout from './src/layouts/MainLayout'
 import DashboardLayout from './src/layouts/DashboardLayout'
 import ProtectedRoute from './src/components/ProtectedRoute'
 import AdminIssues from './src/pages/AdminIssues'
+import JobDetail from './src/pages/JobDetail'
 
 const AppRoutes = () => {
   return (
@@ -28,6 +29,7 @@ const AppRoutes = () => {
         <Route path={ROUTES.SERVICES} element={<Services />} />
         <Route path={ROUTES.CONTACT} element={<Contact />} />
         <Route path={ROUTES.CAREERS} element={<Careers />} />
+        <Route path={ROUTES.CAREERS_DETAIL} element={<JobDetail />} />
         <Route path={ROUTES.CHATBOT} element={<Chatbot />} />
         <Route path={ROUTES.LOGIN} element={<Login />} />
       </Route>

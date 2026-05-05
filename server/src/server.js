@@ -9,6 +9,7 @@ import routes from './routes/index.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { initializeSockets } from './sockets/index.js'
 import { connectDB } from './config/db.js'
+import { verifyEmail } from './services/email.service.js'
 
 dotenv.config()
 
@@ -18,6 +19,7 @@ const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'
 
 // 1. Connect to DB before doing anything else
 await connectDB()
+await verifyEmail()
 
 // 2. Create HTTP + Socket.IO together
 const server = http.createServer(app)
