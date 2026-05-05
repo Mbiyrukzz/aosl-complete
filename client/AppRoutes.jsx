@@ -18,6 +18,7 @@ import DashboardLayout from './src/layouts/DashboardLayout'
 import ProtectedRoute from './src/components/ProtectedRoute'
 import AdminIssues from './src/pages/AdminIssues'
 import JobDetail from './src/pages/JobDetail'
+import AdminJobs from './src/pages/AdminJobs'
 
 const AppRoutes = () => {
   return (
@@ -50,6 +51,7 @@ const AppRoutes = () => {
       >
         <Route element={<DashboardLayout />}>
           <Route path={ROUTES.ADMIN_ISSUES} element={<AdminIssues />} />
+          <Route path={ROUTES.ADMIN_JOBS} element={<AdminJobs />} />
         </Route>
       </Route>
 

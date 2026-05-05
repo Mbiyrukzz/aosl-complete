@@ -13,6 +13,7 @@ export const ROUTES = {
   ADMIN_ISSUES: '/admin/issues',
   CAREERS_DETAIL: '/careers/:id',
   ADMIN_JOBS: '/admin/jobs',
+  ADMIN_APPLICATIONS: '/admin/applications',
 }
 
 // Helper so consumers don't hardcode `/support/${id}` strings everywhere

@@ -101,7 +101,7 @@ export const acknowledgementEmail = ({ name }) => {
 
       <p style="font-size: 14px; color: #6b7280; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
         <strong style="color: #111;">Ashmif Office Solutions</strong><br>
-        Nairobi, Kenya<br>
+        Mombasa, Kenya<br>
         <a href="mailto:hello@ashmif.solutions" style="color: #3b82f6;">hello@ashmif.solutions</a>
       </p>
     </div>

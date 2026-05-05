@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import axios from 'axios'
-import styled, { keyframes } from 'styled-components'
+import styled, { keyframes, css } from 'styled-components'
 import {
   Mail,
   Phone,
@@ -529,17 +529,12 @@ const SubmitButton = styled.button`
   /* Shimmer effect when loading */
   ${({ $loading }) =>
     $loading &&
-    `
-    background: linear-gradient(
-      90deg,
-      #1f2937 0%,
-      #374151 50%,
-      #1f2937 100%
-    );
-    background-size: 200% 100%;
-    animation: ${shimmer} 1.5s infinite linear;
-    color: white;
-  `}
+    css`
+      background: linear-gradient(90deg, #1f2937 0%, #374151 50%, #1f2937 100%);
+      background-size: 200% 100%;
+      animation: ${shimmer} 1.5s infinite linear;
+      color: white;
+    `}
 `
 
 /* ---------- Status banners ---------- */

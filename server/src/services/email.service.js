@@ -1,48 +1,52 @@
 import nodemailer from 'nodemailer'
 
-let transporter = null
+let cachedTransport = null
 
-const getTransporter = () => {
-  if (transporter) return transporter
+const getTransport = () => {
+  if (cachedTransport) return cachedTransport
 
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+  const user = process.env.GMAIL_USER
+  const pass = process.env.GMAIL_APP_PASSWORD
+
+  if (!user || !pass) {
     throw new Error('GMAIL_USER and GMAIL_APP_PASSWORD must be set in .env')
   }
 
-  transporter = nodemailer.createTransport({
+  cachedTransport = nodemailer.createTransport({
     service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
-    },
+    auth: { user, pass },
   })
 
-  return transporter
+  return cachedTransport
+}
+
+export const verifyEmail = async () => {
+  try {
+    const transport = getTransport()
+    await transport.verify()
+    console.log('✓ Email transport ready')
+    return true
+  } catch (err) {
+    console.error('❌ Email transport failed:', err.message)
+    console.error(
+      '   Check: GMAIL_USER, GMAIL_APP_PASSWORD (no spaces), 2FA enabled',
+    )
+    return false
+  }
 }
 
 export const sendEmail = async ({ to, subject, html, text, replyTo }) => {
-  const t = getTransporter()
+  const transport = getTransport()
   const from = `"Ashmif Office Solutions" <${process.env.GMAIL_USER}>`
 
-  return t.sendMail({
+  const info = await transport.sendMail({
     from,
     to,
     subject,
     html,
     text,
-    replyTo,
+    ...(replyTo ? { replyTo } : {}),
   })
-}
 
-// Verify connection on startup so we know early if creds are wrong
-export const verifyEmail = async () => {
-  try {
-    const t = getTransporter()
-    await t.verify()
-    console.log('✓ Email transport ready')
-    return true
-  } catch (err) {
-    console.error('❌ Email transport failed:', err.message)
-    return false
-  }
+  return info
 }

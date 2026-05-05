@@ -9,6 +9,8 @@ import {
   Shield,
   Sun,
   Moon,
+  Briefcase,
+  Inbox,
 } from 'lucide-react'
 import { auth } from '../services/firebase'
 import { useUser } from '../hooks/useUser'
@@ -218,6 +220,14 @@ const Sidebar = () => {
             <Item to={ROUTES.ADMIN_ISSUES}>
               <Shield size={18} />
               <span className="label">All Issues</span>
+            </Item>
+            <Item to={ROUTES.ADMIN_JOBS}>
+              <Briefcase size={18} />
+              <span className="label">Jobs</span>
+            </Item>
+            <Item to={ROUTES.ADMIN_APPLICATIONS}>
+              <Inbox size={18} />
+              <span className="label">Applications</span>
             </Item>
           </>
         )}
