@@ -20,6 +20,7 @@ import JobDetail from './src/pages/JobDetail'
 import AdminJobs from './src/pages/AdminJobs'
 import AdminApplications from './src/pages/AdminApplications'
 import AdminClients from './src/pages/AdminClients'
+import Settings from './src/pages/Settings'
 
 const AppRoutes = () => {
   return (
@@ -57,6 +58,7 @@ const AppRoutes = () => {
             element={<AdminApplications />}
           />
           <Route path={ROUTES.ADMIN_CLIENTS} element={<AdminClients />} />
+          <Route path={ROUTES.SETTINGS} element={<Settings />} />
         </Route>
       </Route>
 

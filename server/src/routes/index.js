@@ -5,7 +5,10 @@ import {
   listAllUsersRoute,
   listStaffRoute,
   profileRoute,
+  syncEmailRoute,
+  updateProfileRoute,
   updateUserRoleRoute,
+  uploadAvatarRoute,
 } from './userRoute.js'
 import {
   listIssuesRoute,
@@ -41,6 +44,9 @@ const routes = [
   healthRoute,
   meRoute,
   profileRoute,
+  updateProfileRoute,
+  uploadAvatarRoute,
+  syncEmailRoute,
   listStaffRoute,
   createClientRoute,
   listAllUsersRoute,

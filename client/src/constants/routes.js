@@ -14,6 +14,7 @@ export const ROUTES = {
   ADMIN_JOBS: '/admin/jobs',
   ADMIN_APPLICATIONS: '/admin/applications',
   ADMIN_CLIENTS: '/admin/clients',
+  SETTINGS: '/settings',
 }
 
 // Helper so consumers don't hardcode `/support/${id}` strings everywhere

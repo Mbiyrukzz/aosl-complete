@@ -19,11 +19,35 @@ const userSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    phone: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    company: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    avatarUrl: {
+      type: String,
+      default: '',
+    },
+    bio: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: 500,
+    },
     role: {
       type: String,
       enum: ['client', 'staff', 'admin'],
       default: 'client',
       index: true,
+    },
+    notificationPrefs: {
+      emailIssueUpdates: { type: Boolean, default: true },
+      emailNewsletters: { type: Boolean, default: false },
     },
   },
   { timestamps: true },

@@ -16,6 +16,9 @@ if (!fs.existsSync(cvDir)) {
   fs.mkdirSync(cvDir, { recursive: true })
 }
 
+const avatarsDir = path.join(process.cwd(), 'uploads/avatars')
+fs.mkdirSync(avatarsDir, { recursive: true })
+
 /* ---------- Existing image upload (issues attachments) ---------- */
 
 const imageStorage = multer.diskStorage({
@@ -25,6 +28,23 @@ const imageStorage = multer.diskStorage({
     cb(null, `${unique}${path.extname(file.originalname).toLowerCase()}`)
   },
 })
+
+const avatarStorage = multer.diskStorage({
+  destination: avatarsDir,
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase()
+    const safe = `${req.user.uid}-${Date.now()}${ext}`
+    cb(null, safe)
+  },
+})
+
+const avatarFilter = (req, file, cb) => {
+  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+  if (!allowed.includes(file.mimetype)) {
+    return cb(new Error('Only JPEG, PNG, WEBP, or GIF images allowed'))
+  }
+  cb(null, true)
+}
 
 const imageFilter = (req, file, cb) => {
   const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
@@ -69,4 +89,10 @@ export const cvUpload = multer({
   storage: cvStorage,
   fileFilter: cvFilter,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB for CVs
+})
+
+export const avatarUpload = multer({
+  storage: avatarStorage,
+  fileFilter: avatarFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 })

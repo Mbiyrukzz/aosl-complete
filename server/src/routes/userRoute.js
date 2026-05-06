@@ -4,18 +4,41 @@ import {
   createClient,
   listAllUsers,
   updateUserRole,
+  getMyProfile,
+  updateMyProfile,
+  uploadAvatar,
+  syncEmail,
 } from '../controllers/users.controller.js'
-
 import { verifyFirebaseToken } from '../middleware/verifyFirebaseToken.js'
 import { isAdmin } from '../middleware/isAdmin.js'
+import { avatarUpload } from '../middleware/upload.js'
 
 export const profileRoute = {
-  path: '/users/profile',
+  path: '/users/me',
   method: 'get',
   middleware: [verifyFirebaseToken],
-  handler: (req, res) => {
-    res.json({ message: 'profile route', user: req.user })
-  },
+  handler: getMyProfile,
+}
+
+export const updateProfileRoute = {
+  path: '/users/me',
+  method: 'patch',
+  middleware: [verifyFirebaseToken],
+  handler: updateMyProfile,
+}
+
+export const uploadAvatarRoute = {
+  path: '/users/me/avatar',
+  method: 'post',
+  middleware: [verifyFirebaseToken, avatarUpload.single('avatar')],
+  handler: uploadAvatar,
+}
+
+export const syncEmailRoute = {
+  path: '/users/me/sync-email',
+  method: 'post',
+  middleware: [verifyFirebaseToken],
+  handler: syncEmail,
 }
 
 export const listStaffRoute = {

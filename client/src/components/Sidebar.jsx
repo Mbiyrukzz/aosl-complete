@@ -12,6 +12,7 @@ import {
   Briefcase,
   Inbox,
   Users,
+  Settings as SettingsIcon,
 } from 'lucide-react'
 import { auth } from '../services/firebase'
 import { useUser } from '../hooks/useUser'
@@ -236,12 +237,6 @@ const Sidebar = () => {
             </Item>
           </>
         )}
-
-        <Section>Account</Section>
-        <Item to="/settings">
-          <Settings size={18} />
-          <span className="label">Settings</span>
-        </Item>
       </Nav>
 
       <Footer>
@@ -255,6 +250,11 @@ const Sidebar = () => {
             {mode === 'light' ? 'Dark mode' : 'Light mode'}
           </span>
         </FooterButton>
+
+        <Item to={ROUTES.SETTINGS}>
+          <SettingsIcon size={18} />
+          <span className="label">Settings</span>
+        </Item>
 
         <FooterButton onClick={handleLogout}>
           <LogOut size={18} />
