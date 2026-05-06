@@ -4,6 +4,7 @@ import { Sun, Moon, MessageCircle } from 'lucide-react'
 import { ROUTES } from '../constants/routes'
 import { useUser } from '../hooks/useUser'
 import { useTheme } from '../hooks/useTheme'
+import { useChatbot } from '../hooks/useChatbot'
 
 const NavWrapper = styled.div`
   position: fixed;
@@ -152,6 +153,7 @@ const CTA = styled(Link)`
 const Navbar = () => {
   const { user } = useUser()
   const { mode, toggleTheme } = useTheme()
+  const { open: openChat } = useChatbot()
 
   return (
     <NavWrapper>
@@ -181,7 +183,7 @@ const Navbar = () => {
         </Links>
 
         <Actions>
-          <IconButton as={NavLink} to={ROUTES.CHATBOT} aria-label="Chatbot">
+          <IconButton onClick={openChat} aria-label="Open chatbot">
             <MessageCircle size={18} />
           </IconButton>
 

@@ -688,7 +688,7 @@ const Contact = () => {
           <ContactList>
             <h3>// Or reach us directly</h3>
 
-            <ContactLink href="mailto:hello@ashmif.solutions">
+            <ContactLink href="mailto:hello@ashmif.com">
               <span className="icon">
                 <Mail size={16} />
               </span>

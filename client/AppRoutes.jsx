@@ -5,7 +5,6 @@ import Products from './src/pages/Products'
 import Services from './src/pages/Services'
 import Contact from './src/pages/Contact'
 import Careers from './src/pages/Careers'
-import Chatbot from './src/pages/Chatbot'
 import Login from './src/pages/Login'
 import Dashboard from './src/pages/Dashboard'
 import Support from './src/pages/Support'
@@ -20,6 +19,7 @@ import AdminIssues from './src/pages/AdminIssues'
 import JobDetail from './src/pages/JobDetail'
 import AdminJobs from './src/pages/AdminJobs'
 import AdminApplications from './src/pages/AdminApplications'
+import AdminClients from './src/pages/AdminClients'
 
 const AppRoutes = () => {
   return (
@@ -32,7 +32,6 @@ const AppRoutes = () => {
         <Route path={ROUTES.CONTACT} element={<Contact />} />
         <Route path={ROUTES.CAREERS} element={<Careers />} />
         <Route path={ROUTES.CAREERS_DETAIL} element={<JobDetail />} />
-        <Route path={ROUTES.CHATBOT} element={<Chatbot />} />
         <Route path={ROUTES.LOGIN} element={<Login />} />
       </Route>
 
@@ -57,6 +56,7 @@ const AppRoutes = () => {
             path={ROUTES.ADMIN_APPLICATIONS}
             element={<AdminApplications />}
           />
+          <Route path={ROUTES.ADMIN_CLIENTS} element={<AdminClients />} />
         </Route>
       </Route>
 

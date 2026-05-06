@@ -1,6 +1,12 @@
 import { healthRoute } from './healthRoute.js'
 import { meRoute } from './authRoutes.js'
-import { listStaffRoute, profileRoute } from './userRoute.js'
+import {
+  createClientRoute,
+  listAllUsersRoute,
+  listStaffRoute,
+  profileRoute,
+  updateUserRoleRoute,
+} from './userRoute.js'
 import {
   listIssuesRoute,
   getIssueRoute,
@@ -29,12 +35,17 @@ import {
   updateJobRoute,
 } from './jobsRoutes.js'
 import { deleteApplication } from '../controllers/applications.controller.js'
+import { chatRoute } from './chatRoutes.js'
 
 const routes = [
   healthRoute,
   meRoute,
   profileRoute,
   listStaffRoute,
+  createClientRoute,
+  listAllUsersRoute,
+  updateUserRoleRoute,
+
   listIssuesRoute,
   getIssueRoute,
   createIssueRoute,
@@ -59,6 +70,8 @@ const routes = [
   listApplicationsRoute,
   updateApplicationStatusRoute,
   deleteApplicationRoute,
+
+  chatRoute,
 ]
 
 export default routes

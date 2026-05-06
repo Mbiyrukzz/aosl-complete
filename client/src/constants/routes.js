@@ -4,7 +4,6 @@ export const ROUTES = {
   SERVICES: '/services',
   CONTACT: '/contact',
   CAREERS: '/careers',
-  CHATBOT: '/chatbot',
   LOGIN: '/login',
   DASHBOARD: '/dashboard',
   SUPPORT: '/support',
@@ -14,6 +13,7 @@ export const ROUTES = {
   CAREERS_DETAIL: '/careers/:id',
   ADMIN_JOBS: '/admin/jobs',
   ADMIN_APPLICATIONS: '/admin/applications',
+  ADMIN_CLIENTS: '/admin/clients',
 }
 
 // Helper so consumers don't hardcode `/support/${id}` strings everywhere

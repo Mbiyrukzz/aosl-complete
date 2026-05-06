@@ -89,7 +89,7 @@ export const acknowledgementEmail = (payload) => {
       more about how we approach projects.
     </p>
 
-    <a href="https://ashmif.solutions"
+    <a href="https://ashmif.com"
        style="display:inline-block;padding:10px 18px;background:#111827;color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
       Visit our site
     </a>
