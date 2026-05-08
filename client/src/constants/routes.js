@@ -14,6 +14,10 @@ export const ROUTES = {
   ADMIN_JOBS: '/admin/jobs',
   ADMIN_APPLICATIONS: '/admin/applications',
   ADMIN_CLIENTS: '/admin/clients',
+  ADMIN_REMINDERS: '/admin/reminders',
+  ADMIN_PACKAGES: '/admin/packages',
+  MY_PACKAGES: '/my-packages',
+  MY_REMINDERS: '/my-reminders',
   SETTINGS: '/settings',
 }
 

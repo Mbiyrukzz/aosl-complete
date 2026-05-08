@@ -21,6 +21,10 @@ import AdminJobs from './src/pages/AdminJobs'
 import AdminApplications from './src/pages/AdminApplications'
 import AdminClients from './src/pages/AdminClients'
 import Settings from './src/pages/Settings'
+import AdminReminders from './src/pages/AdminReminders'
+import AdminPackages from './src/pages/AdminPackages'
+import MyPackages from './src/pages/MyPackages'
+import MyReminders from './src/pages/MyReminders'
 
 const AppRoutes = () => {
   return (
@@ -37,12 +41,15 @@ const AppRoutes = () => {
       </Route>
 
       {/* Any logged-in user */}
+
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route path={ROUTES.DASHBOARD} element={<Dashboard />} />
+          <Route path={ROUTES.MY_PACKAGES} element={<MyPackages />} />
+          <Route path={ROUTES.MY_REMINDERS} element={<MyReminders />} />
           <Route path={ROUTES.SUPPORT} element={<Support />} />
-
           <Route path={ROUTES.SUPPORT_DETAIL} element={<IssueDetail />} />
+          <Route path={ROUTES.SETTINGS} element={<Settings />} />
         </Route>
       </Route>
 
@@ -57,6 +64,8 @@ const AppRoutes = () => {
             path={ROUTES.ADMIN_APPLICATIONS}
             element={<AdminApplications />}
           />
+          <Route path={ROUTES.ADMIN_REMINDERS} element={<AdminReminders />} />
+          <Route path={ROUTES.ADMIN_PACKAGES} element={<AdminPackages />} />
           <Route path={ROUTES.ADMIN_CLIENTS} element={<AdminClients />} />
           <Route path={ROUTES.SETTINGS} element={<Settings />} />
         </Route>

@@ -11,3 +11,10 @@ createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+requestAnimationFrame(() => {
+  const loader = document.getElementById('boot-loader')
+  if (!loader) return
+  loader.classList.add('fade')
+  setTimeout(() => loader.remove(), 350)
+})

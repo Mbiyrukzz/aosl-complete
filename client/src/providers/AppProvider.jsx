@@ -4,6 +4,8 @@ import { SocketProvider } from './SocketProvider'
 import { IssuesProvider } from './IssuesProvider'
 import { NotificationsProvider } from './NotificationsProvider'
 import GlobalStyles from '../styles/GlobalStyles'
+import { PackagesProvider } from './PackagesProvider'
+import { RemindersProvider } from './RemindersProvider'
 
 function AppProvider({ children }) {
   return (
@@ -12,7 +14,11 @@ function AppProvider({ children }) {
       <UserProvider>
         <SocketProvider>
           <NotificationsProvider>
-            <IssuesProvider>{children}</IssuesProvider>
+            <IssuesProvider>
+              <PackagesProvider>
+                <RemindersProvider>{children} </RemindersProvider>
+              </PackagesProvider>
+            </IssuesProvider>
           </NotificationsProvider>
         </SocketProvider>
       </UserProvider>

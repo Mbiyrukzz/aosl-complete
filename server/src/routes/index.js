@@ -39,6 +39,22 @@ import {
 } from './jobsRoutes.js'
 import { deleteApplication } from '../controllers/applications.controller.js'
 import { chatRoute } from './chatRoutes.js'
+import {
+  createReminderRoute,
+  deleteReminderRoute,
+  listRemindersRoute,
+  markAllReadRoute,
+  myNotificationsRoute,
+  myRemindersRoute,
+  updateReminderRoute,
+} from './remindersRoutes.js'
+import {
+  createPackageRoute,
+  deletePackageRoute,
+  listPackagesRoute,
+  myPackagesRoute,
+  updatePackageRoute,
+} from './packagesRoutes.js'
 
 const routes = [
   healthRoute,
@@ -78,6 +94,21 @@ const routes = [
   deleteApplicationRoute,
 
   chatRoute,
+
+  createReminderRoute,
+  listRemindersRoute,
+  updateReminderRoute,
+  deleteReminderRoute,
+  myRemindersRoute,
+  myNotificationsRoute,
+  markNotificationReadRoute,
+  markAllReadRoute,
+
+  createPackageRoute,
+  listPackagesRoute,
+  updatePackageRoute,
+  deletePackageRoute,
+  myPackagesRoute,
 ]
 
 export default routes

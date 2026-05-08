@@ -4,7 +4,7 @@ import { signOut } from 'firebase/auth'
 import {
   LayoutDashboard,
   LifeBuoy,
-  Settings,
+  Bell,
   LogOut,
   Shield,
   Sun,
@@ -12,6 +12,7 @@ import {
   Briefcase,
   Inbox,
   Users,
+  Package,
   Settings as SettingsIcon,
 } from 'lucide-react'
 import { auth } from '../services/firebase'
@@ -216,6 +217,19 @@ const Sidebar = () => {
           <span className="label">Issues</span>
         </Item>
 
+        {!isStaff && (
+          <>
+            <Item to={ROUTES.MY_PACKAGES}>
+              <Package size={18} />
+              <span className="label">My Packages</span>
+            </Item>
+            <Item to={ROUTES.MY_REMINDERS}>
+              <Bell size={18} />
+              <span className="label">My Reminders</span>
+            </Item>
+          </>
+        )}
+
         {isStaff && (
           <>
             <Section>Admin</Section>
@@ -234,6 +248,14 @@ const Sidebar = () => {
             <Item to={ROUTES.ADMIN_CLIENTS}>
               <Users size={18} />
               <span className="label">Clients</span>
+            </Item>
+            <Item to={ROUTES.ADMIN_PACKAGES}>
+              <Package size={18} />
+              <span className="label">Packages</span>
+            </Item>
+            <Item to={ROUTES.ADMIN_REMINDERS}>
+              <Bell size={18} />
+              <span className="label">Reminders</span>
             </Item>
           </>
         )}

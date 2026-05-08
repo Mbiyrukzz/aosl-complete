@@ -21,7 +21,7 @@ const wrap = (innerHtml) => `<!DOCTYPE html>
       </tr>
       <tr>
         <td style="padding:18px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;">
-          Ashmif Office Solutions &middot; Nairobi, Kenya
+          Ashmif Office Solutions &middot; Mombasa, Kenya
         </td>
       </tr>
     </table>
