@@ -25,6 +25,7 @@ import AdminReminders from './src/pages/AdminReminders'
 import AdminPackages from './src/pages/AdminPackages'
 import MyPackages from './src/pages/MyPackages'
 import MyReminders from './src/pages/MyReminders'
+import AuthAction from './src/pages/AuthAction'
 
 const AppRoutes = () => {
   return (
@@ -37,6 +38,7 @@ const AppRoutes = () => {
         <Route path={ROUTES.CONTACT} element={<Contact />} />
         <Route path={ROUTES.CAREERS} element={<Careers />} />
         <Route path={ROUTES.CAREERS_DETAIL} element={<JobDetail />} />
+        <Route path="/__/auth/action" element={<AuthAction />} />
         <Route path={ROUTES.LOGIN} element={<Login />} />
       </Route>
 

@@ -18,6 +18,7 @@ import {
 import { Link } from 'react-router-dom'
 import { usePackages } from '../hooks/usePackages'
 import { ROUTES } from '../constants/routes'
+import { FullScreenLoader } from '../components/Loader'
 
 const Wrapper = styled.div`
   max-width: 1000px;
@@ -341,7 +342,7 @@ const MyPackages = () => {
   if (loading) {
     return (
       <Wrapper>
-        <p style={{ color: 'var(--muted)' }}>Loading your packages...</p>
+        <FullScreenLoader />
       </Wrapper>
     )
   }
