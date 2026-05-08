@@ -21,7 +21,7 @@ const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'
 // 1. Connect to DB before doing anything else
 await connectDB()
 await verifyEmail()
-await startReminderWorker()
+startReminderWorker()
 
 // 2. Create HTTP + Socket.IO together
 const server = http.createServer(app)
