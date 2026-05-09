@@ -2,29 +2,17 @@ import mongoose from 'mongoose'
 
 const packageSchema = new mongoose.Schema(
   {
-    // Owner
-    userId: {
+    // OWNER — now the company, not a user
+    companyId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'Company',
       required: true,
       index: true,
     },
 
-    // What this package is
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 200,
-    },
-    description: {
-      type: String,
-      default: '',
-      trim: true,
-      maxlength: 1000,
-    },
+    name: { type: String, required: true, trim: true, maxlength: 200 },
+    description: { type: String, default: '', trim: true, maxlength: 1000 },
 
-    // Type — drives reminder copy
     type: {
       type: String,
       enum: [
@@ -40,7 +28,6 @@ const packageSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Pricing (for invoice integration later)
     price: {
       amount: { type: Number, default: 0 },
       currency: { type: String, default: 'KES', uppercase: true, trim: true },
@@ -51,11 +38,9 @@ const packageSchema = new mongoose.Schema(
       },
     },
 
-    // Lifecycle dates
     startDate: { type: Date, default: Date.now },
     expiryDate: { type: Date, required: true, index: true },
 
-    // Status
     status: {
       type: String,
       enum: ['active', 'expiring_soon', 'expired', 'cancelled'],
@@ -64,10 +49,9 @@ const packageSchema = new mongoose.Schema(
     },
     autoRenew: { type: Boolean, default: false },
 
-    // Notification config — used at creation time to seed reminders
     reminderDaysBefore: {
       type: [Number],
-      default: [30, 14, 7, 1], // sensible defaults; admin can override
+      default: [30, 14, 7, 1],
     },
     reminderChannels: {
       email: { type: Boolean, default: true },
@@ -75,7 +59,6 @@ const packageSchema = new mongoose.Schema(
       inApp: { type: Boolean, default: true },
     },
 
-    // Reminders we created (so we can clean up on update/delete)
     reminderIds: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -88,8 +71,7 @@ const packageSchema = new mongoose.Schema(
   { timestamps: true },
 )
 
-// Composite indexes for common admin queries
 packageSchema.index({ status: 1, expiryDate: 1 })
-packageSchema.index({ userId: 1, status: 1 })
+packageSchema.index({ companyId: 1, status: 1 })
 
 export const Package = mongoose.model('Package', packageSchema)

@@ -22,7 +22,7 @@ export const RemindersProvider = ({ children }) => {
         const params = new URLSearchParams()
         if (filters.status && filters.status !== 'all')
           params.set('status', filters.status)
-        if (filters.userId) params.set('userId', filters.userId)
+        if (filters.companyId) params.set('companyId', filters.companyId)
         const qs = params.toString() ? `?${params}` : ''
         const data = await get(`/api/admin/reminders${qs}`)
         setReminders(data.reminders)

@@ -17,6 +17,7 @@ import {
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
 import Modal from '../components/Modal'
 import { useReminders } from '../hooks/useReminders'
+import { useCompanies } from '../hooks/useCompanies'
 
 const Wrapper = styled.div`
   max-width: 1100px;
@@ -353,6 +354,28 @@ const FormActions = styled.div`
   justify-content: flex-end;
 `
 
+const TierTag = styled.span`
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: ${({ $tier }) =>
+    ({
+      platinum: 'rgba(99,102,241,0.15)',
+      gold: 'rgba(217,119,6,0.15)',
+      silver: 'rgba(148,163,184,0.15)',
+    })[$tier] || 'rgba(107,114,128,0.15)'};
+  color: ${({ $tier }) =>
+    ({
+      platinum: '#6366f1',
+      gold: '#d97706',
+      silver: '#94a3b8',
+    })[$tier] || '#6b7280'};
+`
+
 const STATUS_CONFIG = {
   scheduled: {
     color: '#3b82f6',
@@ -381,7 +404,8 @@ const STATUS_CONFIG = {
 }
 
 const blankForm = {
-  userId: '',
+  companyId: '',
+  userId: '', // empty = whole company
   title: '',
   message: '',
   category: 'general',
@@ -412,28 +436,33 @@ const AdminReminders = () => {
     updateReminder,
     deleteReminder,
   } = useReminders()
+
+  const { companies } = useCompanies()
   const { isReady, get } = useAuthedRequest()
 
-  const [users, setUsers] = useState([])
+  const [usersInCompany, setUsersInCompany] = useState([])
   const [statusFilter, setStatusFilter] = useState('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(blankForm)
   const [saving, setSaving] = useState(false)
 
-  // Fetch users for the recipient dropdown
+  // Fetch users for the selected company (for optional user targeting)
   useEffect(() => {
     const fetchUsers = async () => {
-      if (!isReady) return
+      if (!form.companyId || !isReady) {
+        setUsersInCompany([])
+        return
+      }
       try {
-        const data = await get('/api/admin/clients')
-        setUsers(data.users)
+        const data = await get(`/api/admin/clients?companyId=${form.companyId}`)
+        setUsersInCompany(data.users.filter((u) => u.role === 'client'))
       } catch (err) {
-        console.error('Failed to fetch users:', err)
+        console.error('Failed to fetch company users:', err)
       }
     }
     fetchUsers()
-  }, [isReady, get])
+  }, [form.companyId, isReady, get])
 
   // Refetch when filter changes
   useEffect(() => {
@@ -442,7 +471,6 @@ const AdminReminders = () => {
 
   const openCreate = () => {
     setEditingId(null)
-    // Default scheduledFor: now + 1 hour
     const defaultDate = new Date(Date.now() + 60 * 60 * 1000)
     setForm({ ...blankForm, scheduledFor: toLocalInputValue(defaultDate) })
     setModalOpen(true)
@@ -451,7 +479,8 @@ const AdminReminders = () => {
   const openEdit = (reminder) => {
     setEditingId(reminder._id)
     setForm({
-      userId: reminder.userId?._id || reminder.userId,
+      companyId: reminder.companyId?._id || reminder.companyId || '',
+      userId: reminder.userId?._id || reminder.userId || '',
       title: reminder.title,
       message: reminder.message,
       category: reminder.category,
@@ -471,6 +500,7 @@ const AdminReminders = () => {
     try {
       const payload = {
         ...form,
+        userId: form.userId || null, // empty string → null on backend
         scheduledFor: new Date(form.scheduledFor).toISOString(),
         recurrenceEndDate: form.recurrenceEndDate
           ? new Date(form.recurrenceEndDate).toISOString()
@@ -498,6 +528,7 @@ const AdminReminders = () => {
       alert('Failed to delete: ' + (err.response?.data?.error || err.message))
     }
   }
+
   const updateField = (field) => (e) =>
     setForm({ ...form, [field]: e.target.value })
 
@@ -566,8 +597,18 @@ const AdminReminders = () => {
                   <span className="meta-item">
                     To:{' '}
                     <span className="recipient">
-                      {r.userId?.displayName || r.userId?.email || 'Unknown'}
+                      {r.companyId?.name || 'Unknown company'}
                     </span>
+                    {r.companyId?.tier && (
+                      <TierTag $tier={r.companyId.tier}>
+                        {r.companyId.tier}
+                      </TierTag>
+                    )}
+                    {r.userId && (
+                      <span style={{ marginLeft: '0.4rem', opacity: 0.8 }}>
+                        → {r.userId.displayName || r.userId.email}
+                      </span>
+                    )}
                   </span>
                   <span className="meta-item">
                     <Calendar size={12} /> {formatDateTime(r.scheduledFor)}
@@ -603,16 +644,32 @@ const AdminReminders = () => {
       >
         <Form onSubmit={handleSave}>
           <Field>
-            <Label>Recipient</Label>
+            <Label>Company</Label>
             <Select
-              value={form.userId}
-              onChange={updateField('userId')}
+              value={form.companyId}
+              onChange={(e) =>
+                setForm({ ...form, companyId: e.target.value, userId: '' })
+              }
               required
             >
-              <option value="">Select a client...</option>
-              {users.map((u) => (
+              <option value="">Select a company...</option>
+              {companies
+                .filter((c) => c.status === 'active')
+                .map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name} ({c.tier})
+                  </option>
+                ))}
+            </Select>
+          </Field>
+
+          <Field>
+            <Label>Send to</Label>
+            <Select value={form.userId} onChange={updateField('userId')}>
+              <option value="">Everyone at this company</option>
+              {usersInCompany.map((u) => (
                 <option key={u._id} value={u._id}>
-                  {u.displayName || u.email} ({u.email})
+                  Just {u.displayName || u.email}
                 </option>
               ))}
             </Select>

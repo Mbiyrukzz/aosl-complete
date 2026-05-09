@@ -13,7 +13,6 @@ export const PackagesProvider = ({ children }) => {
 
   const isStaff = profile?.role === 'staff' || profile?.role === 'admin'
 
-  // Admin fetch — all packages with filters
   const fetchPackages = useCallback(
     async (filters = {}) => {
       if (!isReady || !isStaff) return
@@ -25,7 +24,7 @@ export const PackagesProvider = ({ children }) => {
           params.set('status', filters.status)
         if (filters.type && filters.type !== 'all')
           params.set('type', filters.type)
-        if (filters.userId) params.set('userId', filters.userId)
+        if (filters.companyId) params.set('companyId', filters.companyId) // ← was userId
 
         const qs = params.toString() ? `?${params}` : ''
         const data = await get(`/api/admin/packages${qs}`)
@@ -38,7 +37,6 @@ export const PackagesProvider = ({ children }) => {
     },
     [isReady, isStaff, get],
   )
-
   // Client fetch — own packages only
   const fetchMyPackages = useCallback(async () => {
     if (!isReady) return

@@ -2,6 +2,7 @@ import { verifyFirebaseToken } from '../middleware/verifyFirebaseToken.js'
 import { isStaff } from '../middleware/isStaff.js'
 import {
   listIssues,
+  listAllIssues,
   getIssue,
   createIssue,
   updateIssueStatus,
@@ -18,6 +19,14 @@ export const listIssuesRoute = {
   handler: listIssues,
 }
 
+// Admin-only: tier-sorted aggregation with company populated
+export const listAllIssuesRoute = {
+  path: '/admin/issues',
+  method: 'get',
+  middleware: [verifyFirebaseToken, isStaff],
+  handler: listAllIssues,
+}
+
 export const getIssueRoute = {
   path: '/issues/:id',
   method: 'get',
@@ -28,14 +37,14 @@ export const getIssueRoute = {
 export const createIssueRoute = {
   path: '/issues',
   method: 'post',
-  middleware: [verifyFirebaseToken, upload.array('attachments', 5)], // limit to 5 files
+  middleware: [verifyFirebaseToken, upload.array('attachments', 5)],
   handler: createIssue,
 }
 
 export const updateIssueStatusRoute = {
   path: '/issues/:id/status',
   method: 'patch',
-  middleware: [verifyFirebaseToken, isStaff], // only staff can change status
+  middleware: [verifyFirebaseToken, isStaff],
   handler: updateIssueStatus,
 }
 

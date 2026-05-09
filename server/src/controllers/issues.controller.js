@@ -26,6 +26,72 @@ export const listIssues = async (req, res) => {
   }
 }
 
+// Admin-only: full issue list sorted by tier weight → status urgency → age.
+// Uses aggregation so we can $addFields computed sort keys without storing them.
+export const listAllIssues = async (req, res) => {
+  try {
+    const filter = {}
+    if (req.query.status && req.query.status !== 'all')
+      filter.status = req.query.status
+    if (req.query.priority && req.query.priority !== 'all')
+      filter.priority = req.query.priority
+    if (req.query.companyId) filter.companyId = req.query.companyId
+    if (req.query.companyTier && req.query.companyTier !== 'all')
+      filter.companyTier = req.query.companyTier
+    if (req.query.assignedTo) filter.assignedTo = req.query.assignedTo
+
+    const issues = await Issue.aggregate([
+      { $match: filter },
+      {
+        $addFields: {
+          tierWeight: {
+            $switch: {
+              branches: [
+                { case: { $eq: ['$companyTier', 'platinum'] }, then: 0 },
+                { case: { $eq: ['$companyTier', 'gold'] }, then: 1 },
+                { case: { $eq: ['$companyTier', 'silver'] }, then: 2 },
+              ],
+              default: 3, // no tier (internal/staff issues) sort last
+            },
+          },
+          statusWeight: {
+            $switch: {
+              branches: [
+                { case: { $eq: ['$status', 'open'] }, then: 0 },
+                { case: { $eq: ['$status', 'in_progress'] }, then: 1 },
+                { case: { $eq: ['$status', 'resolved'] }, then: 2 },
+                { case: { $eq: ['$status', 'closed'] }, then: 3 },
+              ],
+              default: 4,
+            },
+          },
+        },
+      },
+      { $sort: { tierWeight: 1, statusWeight: 1, createdAt: 1 } },
+      { $limit: 500 },
+      {
+        $lookup: {
+          from: 'companies',
+          localField: 'companyId',
+          foreignField: '_id',
+          as: 'company',
+        },
+      },
+      {
+        $addFields: {
+          companyId: { $arrayElemAt: ['$company', 0] },
+        },
+      },
+      { $project: { company: 0, tierWeight: 0, statusWeight: 0 } },
+    ])
+
+    res.json({ issues })
+  } catch (err) {
+    console.error('listAllIssues error:', err)
+    res.status(500).json({ error: 'Failed to fetch issues' })
+  }
+}
+
 export const getIssue = async (req, res) => {
   try {
     const { id } = req.params
@@ -46,6 +112,12 @@ export const getIssue = async (req, res) => {
   }
 }
 
+const SLA_HOURS_BY_TIER = {
+  platinum: 2,
+  gold: 8,
+  silver: 24,
+}
+
 export const createIssue = async (req, res) => {
   try {
     const { title, description, priority = 'normal' } = req.body
@@ -64,6 +136,20 @@ export const createIssue = async (req, res) => {
       url: `/uploads/${file.filename}`,
     }))
 
+    // Look up the reporter's company so we can denormalize tier onto the issue
+    const reporter = await User.findOne({ uid: req.user.uid })
+      .populate('companyId', 'tier name')
+      .lean()
+
+    const company = reporter?.companyId
+    const companyId = company?._id || null
+    const companyTier = company?.tier || null
+
+    const slaHours = SLA_HOURS_BY_TIER[companyTier]
+    const slaDeadline = slaHours
+      ? new Date(Date.now() + slaHours * 60 * 60 * 1000)
+      : null
+
     const issue = await Issue.create({
       title,
       description,
@@ -71,6 +157,10 @@ export const createIssue = async (req, res) => {
       createdBy: req.user.uid,
       createdByEmail: req.user.email,
       attachments,
+      companyId,
+      companyTier,
+      slaDeadline,
+      escalated: false,
     })
 
     const payload = issue.toJSON()
@@ -79,21 +169,23 @@ export const createIssue = async (req, res) => {
       req.io.to(`user:${req.user.uid}`).emit('issue:created', payload)
       req.io.to('staff').emit('issue:created', payload)
 
-      // Notify all staff/admin of new issues
       const staffUsers = await User.find({
         role: { $in: ['staff', 'admin'] },
       })
         .select('uid')
         .lean()
 
+      const tierTag = companyTier ? ` [${companyTier.toUpperCase()}]` : ''
+      const companyName = company?.name ? ` from ${company.name}` : ''
+
       const notifPayloads = staffUsers.map((s) => ({
         recipient: s.uid,
-        type: 'issue_assigned', // reuse this type, or add 'issue_created'
+        type: 'issue_assigned',
         issueId: issue._id,
         issueTitle: issue.title,
         actorUid: req.user.uid,
         actorEmail: req.user.email,
-        message: `New ${priority} priority issue from ${req.user.email}`,
+        message: `New ${priority} issue${tierTag}${companyName} from ${req.user.email}`,
       }))
 
       await createNotificationsBulk(req.io, notifPayloads)
@@ -127,7 +219,6 @@ export const updateIssueStatus = async (req, res) => {
       req.io.to(`user:${issue.createdBy}`).emit('issue:updated', issue)
       req.io.to('staff').emit('issue:updated', issue)
 
-      // Notify the creator
       await createNotification(req.io, {
         recipient: issue.createdBy,
         type: 'issue_status_changed',
@@ -163,7 +254,6 @@ export const assignIssue = async (req, res) => {
       req.io.to(`user:${issue.createdBy}`).emit('issue:updated', issue)
       req.io.to('staff').emit('issue:updated', issue)
 
-      // Notify the new assignee
       if (assignedTo) {
         await createNotification(req.io, {
           recipient: assignedTo,
@@ -224,7 +314,6 @@ export const addComment = async (req, res) => {
         req.io.to('staff').emit('issue:updated', payload)
       }
 
-      // Notify creator + assignee (if any) of the new comment
       const recipients = new Set()
       if (issue.createdBy !== req.user.uid) recipients.add(issue.createdBy)
       if (issue.assignedTo && issue.assignedTo !== req.user.uid) {
@@ -265,7 +354,6 @@ export const shareIssue = async (req, res) => {
     const issue = await Issue.findById(id).lean()
     if (!issue) return res.status(404).json({ error: 'Issue not found' })
 
-    // Resolve recipient
     let recipient
     if (recipientUid) {
       recipient = await User.findOne({ uid: recipientUid }).lean()
@@ -279,13 +367,10 @@ export const shareIssue = async (req, res) => {
       return res.status(404).json({ error: 'Recipient not found' })
     }
 
-    // Permission: only the creator or staff can share an issue
     if (!isStaffRole(req.user.role) && issue.createdBy !== req.user.uid) {
       return res.status(403).json({ error: 'Forbidden' })
     }
 
-    // Recipient must be staff to view (since regular clients can only see their own)
-    // OR the creator (already has access)
     const recipientIsStaff =
       recipient.role === 'staff' || recipient.role === 'admin'
     const recipientIsCreator = recipient.uid === issue.createdBy

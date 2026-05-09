@@ -2,14 +2,23 @@ import mongoose from 'mongoose'
 
 const reminderSchema = new mongoose.Schema(
   {
-    // Who this reminder is for (the client receiving it)
-    userId: {
+    // PRIMARY — who the reminder is FOR
+    companyId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'Company',
       required: true,
       index: true,
     },
-    // What this reminder is about
+
+    // OPTIONAL — narrow to a single user within the company.
+    // Null means "everyone at this company gets it."
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      index: true,
+    },
+
     title: {
       type: String,
       required: true,
@@ -22,7 +31,7 @@ const reminderSchema = new mongoose.Schema(
       trim: true,
       maxlength: 2000,
     },
-    // What kind of thing is being reminded about
+
     category: {
       type: String,
       enum: [
@@ -35,7 +44,7 @@ const reminderSchema = new mongoose.Schema(
       default: 'general',
       index: true,
     },
-    // Optional link to a related entity (invoice ID, package ID, etc.)
+
     relatedType: {
       type: String,
       enum: ['Invoice', 'Package', 'Domain', null],
@@ -45,49 +54,39 @@ const reminderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       default: null,
     },
-    // Scheduling
-    scheduledFor: {
-      type: Date,
-      required: true,
-      index: true,
-    },
-    // Recurrence (null = one-time)
+
+    scheduledFor: { type: Date, required: true, index: true },
+
     recurrence: {
       type: String,
       enum: ['none', 'daily', 'weekly', 'monthly', 'yearly'],
       default: 'none',
     },
-    recurrenceEndDate: {
-      type: Date,
-      default: null,
-    },
-    // Channels to send through
+    recurrenceEndDate: { type: Date, default: null },
+
     channels: {
       email: { type: Boolean, default: true },
       whatsapp: { type: Boolean, default: false },
       inApp: { type: Boolean, default: true },
     },
-    // Status — drives the worker
+
     status: {
       type: String,
       enum: ['scheduled', 'sent', 'failed', 'cancelled'],
       default: 'scheduled',
       index: true,
     },
-    // Last attempt info
+
     lastAttemptAt: { type: Date, default: null },
     lastError: { type: String, default: '' },
     sentAt: { type: Date, default: null },
-    // Who created it (admin user, or 'system' for auto-generated)
-    createdBy: {
-      type: String,
-      default: 'system',
-    },
+
+    createdBy: { type: String, default: 'system' },
   },
   { timestamps: true },
 )
 
-// Composite index for the worker query: find reminders due now
 reminderSchema.index({ status: 1, scheduledFor: 1 })
+reminderSchema.index({ companyId: 1, status: 1 })
 
 export const Reminder = mongoose.model('Reminder', reminderSchema)

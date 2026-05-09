@@ -1,5 +1,6 @@
 import admin from '../config/firebase.js'
 import { User } from '../models/User.js'
+import { Company } from '../models/Company.js'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -8,9 +9,17 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // --------- Admin: create a new client ---------
+
 export const createClient = async (req, res) => {
   try {
-    const { email, name, phone, company, role = 'client' } = req.body
+    const {
+      email,
+      name,
+      phone,
+      companyId,
+      jobTitle,
+      role = 'client',
+    } = req.body
 
     if (!email?.trim() || !name?.trim()) {
       return res.status(400).json({ error: 'Email and name are required' })
@@ -18,6 +27,26 @@ export const createClient = async (req, res) => {
 
     if (!['client', 'staff', 'admin'].includes(role)) {
       return res.status(400).json({ error: 'Invalid role' })
+    }
+
+    // Clients must belong to a company; staff/admin don't need one.
+    if (role === 'client' && !companyId) {
+      return res
+        .status(400)
+        .json({ error: 'Client users must be assigned to a company' })
+    }
+
+    // Verify the company exists if one was provided
+    if (companyId) {
+      const company = await Company.findById(companyId).lean()
+      if (!company) {
+        return res.status(404).json({ error: 'Company not found' })
+      }
+      if (company.status === 'archived') {
+        return res
+          .status(400)
+          .json({ error: 'Cannot add users to an archived company' })
+      }
     }
 
     const tempPassword = generateTempPassword()
@@ -39,20 +68,40 @@ export const createClient = async (req, res) => {
       throw err
     }
 
-    // FIXED: schema uses `uid` and `displayName`, not `firebaseUid` and `name`
-    const user = await User.create({
-      uid: firebaseUser.uid,
-      email: email.trim(),
-      displayName: name.trim(),
-      phone: phone?.trim() || '',
-      company: company?.trim() || '',
-      role,
-    })
+    let user
+    try {
+      user = await User.create({
+        uid: firebaseUser.uid,
+        email: email.trim(),
+        displayName: name.trim(),
+        phone: phone?.trim() || '',
+        companyId: companyId || null,
+        jobTitle: jobTitle?.trim() || '',
+        role,
+      })
+    } catch (err) {
+      // Mongo write failed — clean up the orphaned Firebase user so we don't
+      // leave a half-registered account behind
+      try {
+        await admin.auth().deleteUser(firebaseUser.uid)
+      } catch (cleanupErr) {
+        console.error(
+          'Failed to clean up Firebase user after Mongo error:',
+          cleanupErr.message,
+        )
+      }
+      throw err
+    }
 
     const resetLink = await admin.auth().generatePasswordResetLink(email.trim())
 
+    // Populate company on the way out so the frontend doesn't need a second round-trip
+    const populated = await User.findById(user._id)
+      .populate('companyId', 'name tier slug')
+      .lean()
+
     res.status(201).json({
-      user: user.toObject(),
+      user: populated,
       resetLink,
     })
   } catch (err) {
@@ -60,7 +109,6 @@ export const createClient = async (req, res) => {
     res.status(500).json({ error: 'Failed to create client account' })
   }
 }
-
 const generateTempPassword = () => {
   const chars =
     'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*'
@@ -70,10 +118,15 @@ const generateTempPassword = () => {
   return out
 }
 
-// --------- Admin: list all users ---------
 export const listAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}).sort({ createdAt: -1 }).lean()
+    const filter = {}
+    if (req.query.companyId) filter.companyId = req.query.companyId
+
+    const users = await User.find(filter)
+      .sort({ createdAt: -1 })
+      .populate('companyId', 'name tier')
+      .lean()
     res.json({ users })
   } catch (err) {
     console.error('listAllUsers error:', err)
@@ -120,8 +173,9 @@ export const listStaff = async (req, res) => {
 // --------- Auth'd: get my full profile ---------
 export const getMyProfile = async (req, res) => {
   try {
-    // req.user.uid comes from verifyFirebaseToken
-    const user = await User.findOne({ uid: req.user.uid }).lean()
+    const user = await User.findOne({ uid: req.user.uid })
+      .populate('companyId', 'name tier')
+      .lean()
     if (!user) return res.status(404).json({ error: 'Profile not found' })
     res.json({ user })
   } catch (err) {

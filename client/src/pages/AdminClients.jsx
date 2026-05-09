@@ -11,9 +11,14 @@ import {
   Shield,
   ShieldCheck,
   User as UserIcon,
+  Briefcase,
+  Crown,
+  Award,
+  Gem,
 } from 'lucide-react'
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
 import Modal from '../components/Modal'
+import { useCompanies } from '../hooks/useCompanies'
 
 const Wrapper = styled.div`
   max-width: 1100px;
@@ -93,6 +98,45 @@ const SecondaryButton = styled.button`
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
+`
+
+/* ---------- Group / Row ---------- */
+
+const CompanyGroup = styled.div`
+  margin-bottom: 1.5rem;
+`
+
+const GroupHead = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+
+  .name {
+    color: ${({ theme }) => theme.colors.text};
+    font-weight: 700;
+    font-size: 0.92rem;
+  }
+
+  .count {
+    color: ${({ theme }) => theme.colors.muted};
+    font-size: 0.78rem;
+  }
+`
+
+const TierBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: ${({ $tint }) => $tint};
+  color: ${({ $color }) => $color};
 `
 
 const Row = styled.div`
@@ -187,7 +231,8 @@ const RoleSelect = styled.select`
   background-position: right 0.55rem center;
 `
 
-/* Form */
+/* ---------- Form ---------- */
+
 const Form = styled.form`
   display: flex;
   flex-direction: column;
@@ -214,6 +259,10 @@ const Label = styled.label`
   font-size: 0.82rem;
   font-weight: 600;
   color: ${({ theme }) => theme.colors.text};
+
+  .required {
+    color: #ef4444;
+  }
 `
 
 const Input = styled.input`
@@ -239,6 +288,12 @@ const Select = styled.select`
   color: ${({ theme }) => theme.colors.text};
   font-family: inherit;
   font-size: 0.92rem;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
 `
 
 const FormActions = styled.div`
@@ -316,6 +371,8 @@ const Empty = styled.div`
   border-radius: ${({ theme }) => theme.radii.lg};
 `
 
+/* ---------- Constants ---------- */
+
 const ROLE_CONFIG = {
   client: {
     color: '#6b7280',
@@ -337,9 +394,32 @@ const ROLE_CONFIG = {
   },
 }
 
+const TIER_CONFIG = {
+  silver: {
+    color: '#94a3b8',
+    tint: 'rgba(148,163,184,0.15)',
+    icon: Award,
+    label: 'Silver',
+  },
+  gold: {
+    color: '#d97706',
+    tint: 'rgba(217,119,6,0.15)',
+    icon: Crown,
+    label: 'Gold',
+  },
+  platinum: {
+    color: '#6366f1',
+    tint: 'rgba(99,102,241,0.15)',
+    icon: Gem,
+    label: 'Platinum',
+  },
+}
+
+const TIER_WEIGHT = { platinum: 0, gold: 1, silver: 2 }
+
 const initials = (name = '') => {
   const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase() || '?'
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
@@ -347,12 +427,17 @@ const blankForm = {
   name: '',
   email: '',
   phone: '',
-  company: '',
+  companyId: '',
+  jobTitle: '',
   role: 'client',
 }
 
+/* ---------- Component ---------- */
+
 const AdminClients = () => {
   const { isReady, get, post, patch } = useAuthedRequest()
+  const { companies } = useCompanies()
+
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -363,21 +448,22 @@ const AdminClients = () => {
   const [createdUser, setCreatedUser] = useState(null)
   const [copied, setCopied] = useState(false)
 
-  const fetchUsers = async () => {
+  const loadData = async () => {
     if (!isReady) return
+
     setLoading(true)
+
     try {
-      const data = await get('/api/admin/clients')
-      setUsers(data.users)
+      const usersRes = await get('/api/admin/clients')
+      setUsers(usersRes.users)
     } catch (err) {
-      console.error('Failed to fetch users:', err)
+      console.error('Failed to load:', err)
     } finally {
       setLoading(false)
     }
   }
-
   useEffect(() => {
-    fetchUsers()
+    loadData()
   }, [isReady])
 
   const handleCreate = async (e) => {
@@ -435,6 +521,75 @@ const AdminClients = () => {
   const updateField = (field) => (e) =>
     setForm({ ...form, [field]: e.target.value })
 
+  // Group users into: companies (sorted by tier) + ungrouped (staff/admin)
+  const grouped = (() => {
+    const byCompany = new Map()
+    const ungrouped = []
+
+    users.forEach((u) => {
+      if (u.companyId && typeof u.companyId === 'object') {
+        const id = u.companyId._id
+        if (!byCompany.has(id)) {
+          byCompany.set(id, {
+            company: u.companyId,
+            users: [],
+          })
+        }
+        byCompany.get(id).users.push(u)
+      } else {
+        ungrouped.push(u)
+      }
+    })
+
+    const groups = Array.from(byCompany.values()).sort((a, b) => {
+      const tw =
+        (TIER_WEIGHT[a.company.tier] ?? 9) - (TIER_WEIGHT[b.company.tier] ?? 9)
+      if (tw !== 0) return tw
+      return (a.company.name || '').localeCompare(b.company.name || '')
+    })
+
+    return { groups, ungrouped }
+  })()
+
+  const renderUserRow = (user) => {
+    const cfg = ROLE_CONFIG[user.role] || ROLE_CONFIG.client
+    const Icon = cfg.icon
+    return (
+      <Row key={user._id}>
+        <Avatar>{initials(user.displayName || user.email)}</Avatar>
+        <RowInfo>
+          <div className="name">{user.displayName || '(no name)'}</div>
+          <div className="meta">
+            <span className="meta-item">
+              <Mail size={12} /> {user.email}
+            </span>
+            {user.jobTitle && (
+              <span className="meta-item desktop-only">
+                <Briefcase size={12} /> {user.jobTitle}
+              </span>
+            )}
+            {user.phone && (
+              <span className="meta-item desktop-only">
+                <Phone size={12} /> {user.phone}
+              </span>
+            )}
+          </div>
+        </RowInfo>
+        <RolePill className="desktop-only" $tint={cfg.tint} $color={cfg.color}>
+          <Icon size={11} /> {cfg.label}
+        </RolePill>
+        <RoleSelect
+          value={user.role}
+          onChange={(e) => handleRoleChange(user._id, e.target.value)}
+        >
+          <option value="client">Client</option>
+          <option value="staff">Staff</option>
+          <option value="admin">Admin</option>
+        </RoleSelect>
+      </Row>
+    )
+  }
+
   return (
     <Wrapper>
       <PageHead>
@@ -444,7 +599,9 @@ const AdminClients = () => {
           </span>
           <div>
             <h1>Clients & team</h1>
-            <p>Register new client accounts and manage roles.</p>
+            <p>
+              Register new client accounts, group by company, and manage roles.
+            </p>
           </div>
         </Heading>
         <PrimaryButton onClick={() => setModalOpen(true)}>
@@ -464,48 +621,48 @@ const AdminClients = () => {
           </PrimaryButton>
         </Empty>
       ) : (
-        users.map((user) => {
-          const cfg = ROLE_CONFIG[user.role] || ROLE_CONFIG.client
-          const Icon = cfg.icon
-          return (
-            <Row key={user._id}>
-              <Avatar>{initials(user.name)}</Avatar>
-              <RowInfo>
-                <div className="name">{user.name}</div>
-                <div className="meta">
-                  <span className="meta-item">
-                    <Mail size={12} /> {user.email}
+        <>
+          {grouped.groups.map(({ company, users: groupUsers }) => {
+            const tierCfg = TIER_CONFIG[company.tier] || TIER_CONFIG.silver
+            const TierIcon = tierCfg.icon
+            return (
+              <CompanyGroup key={company._id}>
+                <GroupHead>
+                  <Building2
+                    size={15}
+                    style={{ color: 'var(--muted, #6b7280)' }}
+                  />
+                  <span className="name">{company.name}</span>
+                  <TierBadge $tint={tierCfg.tint} $color={tierCfg.color}>
+                    <TierIcon size={10} /> {tierCfg.label}
+                  </TierBadge>
+                  <span className="count">
+                    · {groupUsers.length}{' '}
+                    {groupUsers.length === 1 ? 'user' : 'users'}
                   </span>
-                  {user.company && (
-                    <span className="meta-item desktop-only">
-                      <Building2 size={12} /> {user.company}
-                    </span>
-                  )}
-                  {user.phone && (
-                    <span className="meta-item desktop-only">
-                      <Phone size={12} /> {user.phone}
-                    </span>
-                  )}
-                </div>
-              </RowInfo>
-              <RolePill
-                className="desktop-only"
-                $tint={cfg.tint}
-                $color={cfg.color}
-              >
-                <Icon size={11} /> {cfg.label}
-              </RolePill>
-              <RoleSelect
-                value={user.role}
-                onChange={(e) => handleRoleChange(user._id, e.target.value)}
-              >
-                <option value="client">Client</option>
-                <option value="staff">Staff</option>
-                <option value="admin">Admin</option>
-              </RoleSelect>
-            </Row>
-          )
-        })
+                </GroupHead>
+                {groupUsers.map(renderUserRow)}
+              </CompanyGroup>
+            )
+          })}
+
+          {grouped.ungrouped.length > 0 && (
+            <CompanyGroup>
+              <GroupHead>
+                <ShieldCheck
+                  size={15}
+                  style={{ color: 'var(--muted, #6b7280)' }}
+                />
+                <span className="name">Internal team</span>
+                <span className="count">
+                  · {grouped.ungrouped.length}{' '}
+                  {grouped.ungrouped.length === 1 ? 'member' : 'members'}
+                </span>
+              </GroupHead>
+              {grouped.ungrouped.map(renderUserRow)}
+            </CompanyGroup>
+          )}
+        </>
       )}
 
       <Modal
@@ -518,7 +675,7 @@ const AdminClients = () => {
             <SuccessBox>
               <div className="top">
                 <CheckCircle2 size={18} />
-                <span>{createdUser.name} added successfully</span>
+                <span>{createdUser.displayName} added successfully</span>
               </div>
               <p className="desc">
                 Share the password reset link below with{' '}
@@ -581,7 +738,41 @@ const AdminClients = () => {
               </Field>
             </FormRow>
 
+            <Field>
+              <Label>
+                Company{' '}
+                {form.role === 'client' && <span className="required">*</span>}
+              </Label>
+              <Select
+                value={form.companyId}
+                onChange={updateField('companyId')}
+                required={form.role === 'client'}
+                disabled={form.role !== 'client'}
+              >
+                <option value="">
+                  {form.role === 'client'
+                    ? companies.length === 0
+                      ? 'No companies yet — create one first'
+                      : 'Select a company...'
+                    : 'Not required for staff/admin'}
+                </option>
+                {companies.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name} ({TIER_CONFIG[c.tier]?.label || c.tier})
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
             <FormRow>
+              <Field>
+                <Label>Job title (optional)</Label>
+                <Input
+                  value={form.jobTitle}
+                  onChange={updateField('jobTitle')}
+                  placeholder="Operations Manager"
+                />
+              </Field>
               <Field>
                 <Label>Phone (optional)</Label>
                 <Input
@@ -589,14 +780,6 @@ const AdminClients = () => {
                   value={form.phone}
                   onChange={updateField('phone')}
                   placeholder="+254 700 000 000"
-                />
-              </Field>
-              <Field>
-                <Label>Company (optional)</Label>
-                <Input
-                  value={form.company}
-                  onChange={updateField('company')}
-                  placeholder="Acme Ltd"
                 />
               </Field>
             </FormRow>
@@ -614,7 +797,10 @@ const AdminClients = () => {
               <SecondaryButton type="button" onClick={closeModal}>
                 Cancel
               </SecondaryButton>
-              <PrimaryButton type="submit" disabled={saving}>
+              <PrimaryButton
+                type="submit"
+                disabled={saving || (form.role === 'client' && !form.companyId)}
+              >
                 {saving ? 'Creating...' : 'Create account'}
               </PrimaryButton>
             </FormActions>

@@ -131,6 +131,44 @@ export const dispatch = async ({
   return notification
 }
 
+export const dispatchReminderToCompany = async (reminder) => {
+  let recipients = []
+
+  if (reminder.userId) {
+    // Targeted at one user
+    const user = await User.findById(reminder.userId).lean()
+    if (user) recipients = [user]
+  } else {
+    // Fan out to all client users in the company
+    recipients = await User.find({
+      companyId: reminder.companyId,
+      role: 'client',
+    }).lean()
+  }
+
+  if (recipients.length === 0) {
+    console.warn(
+      `[reminder] No recipients for reminder ${reminder._id} (company ${reminder.companyId})`,
+    )
+    return []
+  }
+
+  const results = await Promise.allSettled(
+    recipients.map((user) =>
+      dispatch({
+        userId: user._id,
+        title: reminder.title,
+        message: reminder.message,
+        category: reminder.category,
+        channels: reminder.channels,
+        reminderId: reminder._id,
+      }),
+    ),
+  )
+
+  return results.map((r) => (r.status === 'fulfilled' ? r.value : null))
+}
+
 const sendWhatsApp = async (_params) => {
   throw new Error('WhatsApp not configured yet')
 }

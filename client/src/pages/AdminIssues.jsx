@@ -13,11 +13,15 @@ import {
   Clock,
   MessageSquare,
   Shield,
+  Gem,
+  Crown,
+  Award,
 } from 'lucide-react'
 import { useIssues } from '../hooks/useIssues'
 import { useUser } from '../hooks/useUser'
 import { buildIssuePath } from '../constants/routes'
 import IssueListSkeleton from '../components/IssueListSkeleton'
+import TierBadge from '../components/TierBadge'
 
 /* ---------- Layout ---------- */
 
@@ -129,8 +133,42 @@ const Toolbar = styled.div`
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+`
+
+/* Tier filter chip row */
+const TierFilters = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   margin-bottom: 1rem;
   flex-wrap: wrap;
+`
+
+const FilterChip = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid
+    ${({ theme, $active }) =>
+      $active ? theme.colors.primary : theme.colors.border};
+  background: ${({ theme, $active }) =>
+    $active ? 'rgba(99,102,241,0.1)' : theme.colors.surface};
+  color: ${({ theme, $active }) =>
+    $active ? theme.colors.primary : theme.colors.muted};
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+    color: ${({ theme }) => theme.colors.primary};
+  }
 `
 
 const SearchWrap = styled.div`
@@ -210,18 +248,33 @@ const Row = styled.div`
   border-radius: ${({ theme }) => theme.radii.md};
   margin-bottom: 0.5rem;
   position: relative;
+  overflow: hidden;
   transition: border-color 0.18s ease;
 
-  &::before {
-    content: '';
-    position: absolute;
-    left: -1px;
-    top: 12px;
-    bottom: 12px;
-    width: 3px;
-    border-radius: 2px;
-    background: ${({ $accent }) => $accent};
-  }
+  /* Tier-coloured left stripe for platinum and gold */
+  ${({ $tier }) =>
+    $tier === 'platinum' &&
+    `&::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: #6366f1;
+    }`}
+
+  ${({ $tier }) =>
+    $tier === 'gold' &&
+    `&::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: #d97706;
+    }`}
 
   &:hover {
     border-color: ${({ theme }) => theme.colors.primary};
@@ -265,7 +318,7 @@ const RowBody = styled(Link)`
     color: ${({ theme }) => theme.colors.muted};
     font-size: 0.78rem;
     display: flex;
-    gap: 0.65rem;
+    gap: 0.5rem;
     align-items: center;
     flex-wrap: wrap;
   }
@@ -281,6 +334,11 @@ const RowBody = styled(Link)`
     align-items: center;
     gap: 0.25rem;
   }
+
+  .company {
+    font-weight: 600;
+    color: ${({ theme }) => theme.colors.text};
+  }
 `
 
 const PriorityTag = styled.span`
@@ -295,6 +353,41 @@ const PriorityTag = styled.span`
   background: ${({ $tint }) => $tint};
   color: ${({ $color }) => $color};
 `
+
+/* SLA inline indicator */
+const SLATag = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: ${({ $breached }) =>
+    $breached ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)'};
+  color: ${({ $breached }) => ($breached ? '#ef4444' : '#d97706')};
+`
+
+const SLAIndicator = ({ deadline }) => {
+  const diff = new Date(deadline) - new Date()
+  const breached = diff < 0
+  const hours = Math.abs(Math.floor(diff / (1000 * 60 * 60)))
+  const mins = Math.abs(Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)))
+  const label = breached
+    ? hours >= 1
+      ? `${hours}h overdue`
+      : `${mins}m overdue`
+    : hours >= 1
+      ? `${hours}h left`
+      : `${mins}m left`
+
+  return (
+    <SLATag $breached={breached}>
+      <Clock size={10} />
+      {label}
+    </SLATag>
+  )
+}
 
 const AssigneeSelect = styled.select`
   padding: 0.4rem 1.6rem 0.4rem 0.7rem;
@@ -423,6 +516,7 @@ const AdminIssues = () => {
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [sort, setSort] = useState('newest')
   const [query, setQuery] = useState('')
+  const [tierFilter, setTierFilter] = useState('all')
 
   const counts = useMemo(() => {
     const c = {
@@ -446,10 +540,12 @@ const AdminIssues = () => {
         return false
       if (assigneeFilter === 'me' && i.assignedTo !== user?.uid) return false
       if (assigneeFilter === 'unassigned' && i.assignedTo) return false
+      if (tierFilter !== 'all' && i.companyTier !== tierFilter) return false
       if (q) {
         const inTitle = i.title.toLowerCase().includes(q)
         const inEmail = i.createdByEmail?.toLowerCase().includes(q)
-        if (!inTitle && !inEmail) return false
+        const inCompany = i.companyId?.name?.toLowerCase().includes(q)
+        if (!inTitle && !inEmail && !inCompany) return false
       }
       return true
     })
@@ -470,7 +566,16 @@ const AdminIssues = () => {
           return new Date(b.createdAt) - new Date(a.createdAt)
       }
     })
-  }, [issues, filter, priorityFilter, assigneeFilter, query, sort, user])
+  }, [
+    issues,
+    filter,
+    priorityFilter,
+    assigneeFilter,
+    tierFilter,
+    query,
+    sort,
+    user,
+  ])
 
   const handleStatusChange = async (id, newStatus) => {
     try {
@@ -554,11 +659,39 @@ const AdminIssues = () => {
         })}
       </Stats>
 
+      {/* Tier filter chips */}
+      <TierFilters>
+        <FilterChip
+          $active={tierFilter === 'all'}
+          onClick={() => setTierFilter('all')}
+        >
+          All tiers
+        </FilterChip>
+        <FilterChip
+          $active={tierFilter === 'platinum'}
+          onClick={() => setTierFilter('platinum')}
+        >
+          <Gem size={11} /> Platinum
+        </FilterChip>
+        <FilterChip
+          $active={tierFilter === 'gold'}
+          onClick={() => setTierFilter('gold')}
+        >
+          <Crown size={11} /> Gold
+        </FilterChip>
+        <FilterChip
+          $active={tierFilter === 'silver'}
+          onClick={() => setTierFilter('silver')}
+        >
+          <Award size={11} /> Silver
+        </FilterChip>
+      </TierFilters>
+
       <Toolbar>
         <SearchWrap>
           <Search size={15} />
           <SearchInput
-            placeholder="Search by title or email..."
+            placeholder="Search by title, email, or company..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -613,9 +746,13 @@ const AdminIssues = () => {
           const priority =
             PRIORITY_CONFIG[issue.priority] || PRIORITY_CONFIG.normal
           const StatusGlyph = status.icon
+          const showSLA =
+            issue.slaDeadline &&
+            issue.status !== 'resolved' &&
+            issue.status !== 'closed'
 
           return (
-            <Row key={issue._id} $accent={status.color}>
+            <Row key={issue._id} $tier={issue.companyTier}>
               <StatusIcon $color={status.color}>
                 <StatusGlyph size={18} />
               </StatusIcon>
@@ -627,6 +764,12 @@ const AdminIssues = () => {
                   <PriorityTag $tint={priority.tint} $color={priority.color}>
                     {issue.priority}
                   </PriorityTag>
+                  {issue.companyId?.name && (
+                    <span className="company">{issue.companyId.name}</span>
+                  )}
+                  {issue.companyTier && (
+                    <TierBadge tier={issue.companyTier} size="sm" />
+                  )}
                   <span className="author">
                     <User size={11} />
                     {issue.createdByEmail}
@@ -638,6 +781,7 @@ const AdminIssues = () => {
                     />
                     {formatDate(issue.createdAt)}
                   </span>
+                  {showSLA && <SLAIndicator deadline={issue.slaDeadline} />}
                 </div>
               </RowBody>
 

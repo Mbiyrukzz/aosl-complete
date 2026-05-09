@@ -16,19 +16,22 @@ export const IssuesProvider = ({ children }) => {
 
   const isStaffUser = profile?.role === 'staff' || profile?.role === 'admin'
 
+  // Staff/admin hit the aggregation endpoint (tier-sorted, company populated).
+  // Clients hit the regular endpoint (their own issues only).
   const fetchIssues = useCallback(async () => {
     if (!isReady) return
     setLoading(true)
     setError(null)
     try {
-      const data = await get('/api/issues')
+      const endpoint = isStaffUser ? '/api/admin/issues' : '/api/issues'
+      const data = await get(endpoint)
       setIssues(data.issues)
     } catch (err) {
       setError(err.response?.data?.error || err.message)
     } finally {
       setLoading(false)
     }
-  }, [isReady, get])
+  }, [isReady, isStaffUser, get])
 
   // Fetch staff list — only for staff/admin users
   const fetchStaff = useCallback(async () => {
@@ -93,6 +96,7 @@ export const IssuesProvider = ({ children }) => {
         return [issue, ...prev]
       })
     }
+
     const onUpdated = (issue) => {
       setIssues((prev) => prev.map((i) => (i._id === issue._id ? issue : i)))
     }

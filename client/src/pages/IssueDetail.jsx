@@ -13,12 +13,14 @@ import {
   CircleSlash,
   Activity,
   Share2,
+  Building2,
 } from 'lucide-react'
 import { useIssues } from '../hooks/useIssues'
 import { useUser } from '../hooks/useUser'
 import { ROUTES } from '../constants/routes'
 import IssueDetailSkeleton from '../components/IssueDetailSkeleton'
 import ShareModal from '../components/ShareModal'
+import TierBadge from '../components/TierBadge'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
 
@@ -86,6 +88,65 @@ const ShareButton = styled.button`
     border-color: ${({ theme }) => theme.colors.primary};
   }
 `
+
+/* ---------- Company banner ---------- */
+
+const CompanyBanner = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.85rem;
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+  font-size: 0.85rem;
+  color: ${({ theme }) => theme.colors.muted};
+  margin-bottom: 1rem;
+
+  svg {
+    color: ${({ theme }) => theme.colors.muted};
+  }
+
+  & > span:first-of-type {
+    color: ${({ theme }) => theme.colors.text};
+    font-weight: 600;
+  }
+`
+
+/* SLA inline indicator */
+const SLATag = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: ${({ $breached }) =>
+    $breached ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)'};
+  color: ${({ $breached }) => ($breached ? '#ef4444' : '#d97706')};
+`
+
+const SLAIndicator = ({ deadline }) => {
+  const diff = new Date(deadline) - new Date()
+  const breached = diff < 0
+  const hours = Math.abs(Math.floor(diff / (1000 * 60 * 60)))
+  const mins = Math.abs(Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)))
+  const label = breached
+    ? hours >= 1
+      ? `${hours}h overdue`
+      : `${mins}m overdue`
+    : hours >= 1
+      ? `${hours}h left`
+      : `${mins}m left`
+
+  return (
+    <SLATag $breached={breached}>
+      <Clock size={10} />
+      {label}
+    </SLATag>
+  )
+}
 
 /* ---------- Header ---------- */
 
@@ -446,7 +507,6 @@ const statusIcon = (status) => {
 
 const resolveAssignee = (assignedTo, staffList) => {
   if (!assignedTo) return 'Unassigned'
-  // Clients don't fetch the staff list — show a friendly fallback
   if (!staffList || staffList.length === 0) return 'A staff member'
   const member = staffList.find((s) => s.uid === assignedTo)
   return member ? member.email.split('@')[0] : 'A staff member'
@@ -465,11 +525,15 @@ const IssueDetail = () => {
 
   const issue = issues.find((i) => i._id === id)
 
-  // Guard FIRST — don't access issue.* before we know it exists
   if (loading && !issue) return <IssueDetailSkeleton />
   if (!loading && !issue) return <Navigate to={ROUTES.SUPPORT} replace />
 
   const assigneeLabel = resolveAssignee(issue.assignedTo, staff)
+
+  const showSLA =
+    issue.slaDeadline &&
+    issue.status !== 'resolved' &&
+    issue.status !== 'closed'
 
   const handleAddComment = async (e) => {
     e.preventDefault()
@@ -506,6 +570,17 @@ const IssueDetail = () => {
             {issue.status.replace('_', ' ')}
           </StatusPill>
         </div>
+
+        {/* Company banner — shown when company info is available */}
+        {issue.companyId && (
+          <CompanyBanner>
+            <Building2 size={14} />
+            <span>{issue.companyId.name || issue.companyId}</span>
+            <TierBadge tier={issue.companyTier} size="sm" />
+            {showSLA && <SLAIndicator deadline={issue.slaDeadline} />}
+          </CompanyBanner>
+        )}
+
         <Title>{issue.title}</Title>
         <Subline>
           <span>opened by {issue.createdByEmail}</span>
@@ -599,6 +674,20 @@ const IssueDetail = () => {
               <span className="label">Updated</span>
               <span className="value">{formatTime(issue.updatedAt)}</span>
             </InfoRow>
+            {issue.slaDeadline && (
+              <InfoRow>
+                <Clock size={14} />
+                <span className="label">SLA deadline</span>
+                <span className="value">
+                  {new Date(issue.slaDeadline).toLocaleString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              </InfoRow>
+            )}
           </PanelSection>
 
           {issue.attachments?.length > 0 && (

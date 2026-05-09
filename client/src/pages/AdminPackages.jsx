@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import Modal from '../components/Modal'
 import { usePackages } from '../hooks/usePackages'
-import { useAuthedRequest } from '../hooks/useAuthedRequest'
+import { useCompanies } from '../hooks/useCompanies'
 
 const Wrapper = styled.div`
   max-width: 1100px;
@@ -259,6 +259,27 @@ const Empty = styled.div`
   border: 1px dashed ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.lg};
 `
+const TierTag = styled.span`
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: ${({ $tier }) =>
+    ({
+      platinum: 'rgba(99,102,241,0.15)',
+      gold: 'rgba(217,119,6,0.15)',
+      silver: 'rgba(148,163,184,0.15)',
+    })[$tier] || 'rgba(107,114,128,0.15)'};
+  color: ${({ $tier }) =>
+    ({
+      platinum: '#6366f1',
+      gold: '#d97706',
+      silver: '#94a3b8',
+    })[$tier] || '#6b7280'};
+`
 
 /* ----- Form ----- */
 
@@ -462,7 +483,7 @@ const STATUS_CONFIG = {
 }
 
 const blankForm = {
-  userId: '',
+  companyId: '',
   name: '',
   description: '',
   type: 'subscription',
@@ -503,27 +524,13 @@ const AdminPackages = () => {
     updatePackage,
     deletePackage,
   } = usePackages()
-  const { isReady, get } = useAuthedRequest()
+  const { companies } = useCompanies()
 
-  const [users, setUsers] = useState([])
   const [statusFilter, setStatusFilter] = useState('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(blankForm)
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    const fetchUsers = async () => {
-      if (!isReady) return
-      try {
-        const data = await get('/api/admin/clients')
-        setUsers(data.users)
-      } catch (err) {
-        console.error('Failed to fetch users:', err)
-      }
-    }
-    fetchUsers()
-  }, [isReady, get])
 
   useEffect(() => {
     refetch({ status: statusFilter })
@@ -553,7 +560,7 @@ const AdminPackages = () => {
   const openEdit = (pkg) => {
     setEditingId(pkg._id)
     setForm({
-      userId: pkg.userId?._id || pkg.userId,
+      companyId: pkg.companyId?._id || pkg.companyId,
       name: pkg.name,
       description: pkg.description || '',
       type: pkg.type,
@@ -700,10 +707,13 @@ const AdminPackages = () => {
                 <div className="meta">
                   <span className="meta-item">
                     <span className="recipient">
-                      {pkg.userId?.displayName ||
-                        pkg.userId?.email ||
-                        'Unknown'}
+                      {pkg.companyId?.name || 'Unknown company'}
                     </span>
+                    {pkg.companyId?.tier && (
+                      <TierTag $tier={pkg.companyId.tier}>
+                        {pkg.companyId.tier}
+                      </TierTag>
+                    )}
                   </span>
                   <span className="meta-item">
                     <Calendar size={12} />
@@ -741,19 +751,22 @@ const AdminPackages = () => {
         title={editingId ? 'Edit package' : 'New package'}
       >
         <Form onSubmit={handleSave}>
+          {/* Replace this whole Field block: */}
           <Field>
-            <Label>Client</Label>
+            <Label>Company</Label>
             <Select
-              value={form.userId}
-              onChange={updateField('userId')}
+              value={form.companyId}
+              onChange={updateField('companyId')}
               required
             >
-              <option value="">Select a client...</option>
-              {users.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.displayName || u.email} ({u.email})
-                </option>
-              ))}
+              <option value="">Select a company...</option>
+              {companies
+                .filter((c) => c.status === 'active')
+                .map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name} ({c.tier})
+                  </option>
+                ))}
             </Select>
           </Field>
 

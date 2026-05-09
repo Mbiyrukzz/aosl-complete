@@ -12,6 +12,7 @@ import {
 } from './userRoute.js'
 import {
   listIssuesRoute,
+  listAllIssuesRoute,
   getIssueRoute,
   createIssueRoute,
   updateIssueStatusRoute,
@@ -37,7 +38,6 @@ import {
   updateApplicationStatusRoute,
   updateJobRoute,
 } from './jobsRoutes.js'
-import { deleteApplication } from '../controllers/applications.controller.js'
 import { chatRoute } from './chatRoutes.js'
 import {
   createReminderRoute,
@@ -55,9 +55,17 @@ import {
   myPackagesRoute,
   updatePackageRoute,
 } from './packagesRoutes.js'
+import {
+  deleteCompanyRoute,
+  createCompanyRoute,
+  getCompanyRoute,
+  listCompaniesRoute,
+  updateCompanyRoute,
+} from './companiesRoutes.js'
 
 const routes = [
   healthRoute,
+
   meRoute,
   profileRoute,
   updateProfileRoute,
@@ -68,14 +76,21 @@ const routes = [
   listAllUsersRoute,
   updateUserRoleRoute,
 
+  createCompanyRoute,
+  listCompaniesRoute,
+  getCompanyRoute,
+  updateCompanyRoute,
+  deleteCompanyRoute,
+
   listIssuesRoute,
+  listAllIssuesRoute,
   getIssueRoute,
   createIssueRoute,
   updateIssueStatusRoute,
   assignIssueRoute,
   addCommentRoute,
-
   shareIssueRoute,
+
   listNotificationsRoute,
   markNotificationReadRoute,
   markAllNotificationsReadRoute,
@@ -89,6 +104,7 @@ const routes = [
   createJobRoute,
   updateJobRoute,
   deleteJobRoute,
+
   listApplicationsRoute,
   updateApplicationStatusRoute,
   deleteApplicationRoute,
@@ -100,6 +116,7 @@ const routes = [
   updateReminderRoute,
   deleteReminderRoute,
   myRemindersRoute,
+
   myNotificationsRoute,
   markNotificationReadRoute,
   markAllReadRoute,

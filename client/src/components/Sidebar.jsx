@@ -10,6 +10,7 @@ import {
   Sun,
   Moon,
   Briefcase,
+  Building2,
   Inbox,
   Users,
   Package,
@@ -244,6 +245,10 @@ const Sidebar = () => {
             <Item to={ROUTES.ADMIN_APPLICATIONS}>
               <Inbox size={18} />
               <span className="label">Applications</span>
+            </Item>
+            <Item to={ROUTES.ADMIN_COMPANIES}>
+              <Building2 size={18} />
+              <span className="label">Companies</span>
             </Item>
             <Item to={ROUTES.ADMIN_CLIENTS}>
               <Users size={18} />

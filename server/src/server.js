@@ -11,6 +11,8 @@ import { initializeSockets } from './sockets/index.js'
 import { connectDB } from './config/db.js'
 import { verifyEmail } from './services/email.service.js'
 import { startReminderWorker } from './workers/reminder-worker.js'
+import { migrateToCompanies } from './migrations/001-companies.js'
+import { startPackageStatusWorker } from './workers/package-status-worker.js'
 
 dotenv.config()
 
@@ -20,11 +22,13 @@ const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'
 
 // 1. Connect to DB before doing anything else
 await connectDB()
+await migrateToCompanies()
 await Promise.race([
   verifyEmail(),
   new Promise((resolve) => setTimeout(resolve, 5000)),
 ]).catch(() => {})
 startReminderWorker()
+startPackageStatusWorker()
 
 // 2. Create HTTP + Socket.IO together
 const server = http.createServer(app)

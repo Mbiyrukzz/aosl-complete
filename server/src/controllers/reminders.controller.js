@@ -1,12 +1,14 @@
 import { Reminder } from '../models/Reminder.js'
 import { User } from '../models/User.js'
+import { Company } from '../models/Company.js'
 import { Notification } from '../models/Notification.js'
 
-// Admin: create a reminder
+// Admin: create a reminder (company-targeted)
 export const createReminder = async (req, res) => {
   try {
     const {
-      userId,
+      companyId,
+      userId, // optional — narrow to one user
       title,
       message,
       category,
@@ -16,19 +18,32 @@ export const createReminder = async (req, res) => {
       channels = { email: true, whatsapp: false, inApp: true },
     } = req.body
 
-    if (!userId || !title?.trim() || !message?.trim() || !scheduledFor) {
-      return res
-        .status(400)
-        .json({
-          error: 'userId, title, message, and scheduledFor are required',
-        })
+    if (!companyId || !title?.trim() || !message?.trim() || !scheduledFor) {
+      return res.status(400).json({
+        error: 'companyId, title, message, and scheduledFor are required',
+      })
     }
 
-    const targetUser = await User.findById(userId).lean()
-    if (!targetUser) return res.status(404).json({ error: 'User not found' })
+    const company = await Company.findById(companyId).lean()
+    if (!company) return res.status(404).json({ error: 'Company not found' })
+
+    // If userId provided, validate they belong to that company
+    if (userId) {
+      const user = await User.findById(userId).lean()
+      if (!user) return res.status(404).json({ error: 'User not found' })
+      if (
+        !user.companyId ||
+        user.companyId.toString() !== companyId.toString()
+      ) {
+        return res
+          .status(400)
+          .json({ error: 'User does not belong to that company' })
+      }
+    }
 
     const reminder = await Reminder.create({
-      userId,
+      companyId,
+      userId: userId || null,
       title: title.trim(),
       message: message.trim(),
       category: category || 'general',
@@ -40,7 +55,12 @@ export const createReminder = async (req, res) => {
       createdBy: req.user.uid,
     })
 
-    res.status(201).json({ reminder: reminder.toObject() })
+    const populated = await Reminder.findById(reminder._id)
+      .populate('companyId', 'name tier')
+      .populate('userId', 'displayName email')
+      .lean()
+
+    res.status(201).json({ reminder: populated })
   } catch (err) {
     console.error('createReminder error:', err)
     res.status(500).json({ error: 'Failed to create reminder' })
@@ -51,7 +71,7 @@ export const createReminder = async (req, res) => {
 export const listReminders = async (req, res) => {
   try {
     const filter = {}
-    if (req.query.userId) filter.userId = req.query.userId
+    if (req.query.companyId) filter.companyId = req.query.companyId
     if (req.query.status && req.query.status !== 'all')
       filter.status = req.query.status
     if (req.query.category && req.query.category !== 'all')
@@ -60,6 +80,7 @@ export const listReminders = async (req, res) => {
     const reminders = await Reminder.find(filter)
       .sort({ scheduledFor: 1 })
       .limit(500)
+      .populate('companyId', 'name tier')
       .populate('userId', 'displayName email')
       .lean()
 
@@ -70,7 +91,7 @@ export const listReminders = async (req, res) => {
   }
 }
 
-// Admin: update reminder (only if still scheduled)
+// Admin: update reminder
 export const updateReminder = async (req, res) => {
   try {
     const allowed = [
@@ -82,6 +103,7 @@ export const updateReminder = async (req, res) => {
       'recurrenceEndDate',
       'channels',
       'status',
+      'userId', // can change targeting after creation
     ]
     const updates = {}
     for (const k of allowed)
@@ -90,7 +112,10 @@ export const updateReminder = async (req, res) => {
     const reminder = await Reminder.findByIdAndUpdate(req.params.id, updates, {
       new: true,
       runValidators: true,
-    }).lean()
+    })
+      .populate('companyId', 'name tier')
+      .populate('userId', 'displayName email')
+      .lean()
 
     if (!reminder) return res.status(404).json({ error: 'Reminder not found' })
     res.json({ reminder })
@@ -100,7 +125,7 @@ export const updateReminder = async (req, res) => {
   }
 }
 
-// Admin: delete reminder
+// Admin: delete
 export const deleteReminder = async (req, res) => {
   try {
     const reminder = await Reminder.findByIdAndDelete(req.params.id).lean()
@@ -112,14 +137,17 @@ export const deleteReminder = async (req, res) => {
   }
 }
 
-// Client: their own reminders (upcoming)
+// Client: their own reminders (filtered to their company; userId-targeted ones must match them)
 export const listMyReminders = async (req, res) => {
   try {
     const me = await User.findOne({ uid: req.user.uid }).lean()
     if (!me) return res.status(404).json({ error: 'Profile not found' })
+    if (!me.companyId) return res.json({ reminders: [] })
 
     const reminders = await Reminder.find({
-      userId: me._id,
+      companyId: me.companyId,
+      // Either company-wide (userId null) OR specifically targeted at me
+      $or: [{ userId: null }, { userId: me._id }],
       status: { $in: ['scheduled', 'sent'] },
     })
       .sort({ scheduledFor: 1 })
@@ -133,20 +161,20 @@ export const listMyReminders = async (req, res) => {
   }
 }
 
-// Client: their notification history (activity feed)
+// Client: notification feed (unchanged — already keyed by recipient/userId)
 export const listMyNotifications = async (req, res) => {
   try {
     const me = await User.findOne({ uid: req.user.uid }).lean()
     if (!me) return res.status(404).json({ error: 'Profile not found' })
 
-    const notifications = await Notification.find({ userId: me._id })
+    const notifications = await Notification.find({ recipient: req.user.uid })
       .sort({ createdAt: -1 })
       .limit(100)
       .lean()
 
     const unreadCount = await Notification.countDocuments({
-      userId: me._id,
-      'delivery.inApp.readAt': null,
+      recipient: req.user.uid,
+      read: false,
     })
 
     res.json({ notifications, unreadCount })
@@ -156,15 +184,12 @@ export const listMyNotifications = async (req, res) => {
   }
 }
 
-// Client: mark notification as read
+// Client: mark single notification as read
 export const markNotificationRead = async (req, res) => {
   try {
-    const me = await User.findOne({ uid: req.user.uid }).lean()
-    if (!me) return res.status(404).json({ error: 'Profile not found' })
-
     const notification = await Notification.findOneAndUpdate(
-      { _id: req.params.id, userId: me._id },
-      { 'delivery.inApp.readAt': new Date() },
+      { _id: req.params.id, recipient: req.user.uid },
+      { read: true },
       { new: true },
     ).lean()
 
@@ -181,14 +206,10 @@ export const markNotificationRead = async (req, res) => {
 // Client: mark all as read
 export const markAllRead = async (req, res) => {
   try {
-    const me = await User.findOne({ uid: req.user.uid }).lean()
-    if (!me) return res.status(404).json({ error: 'Profile not found' })
-
     await Notification.updateMany(
-      { userId: me._id, 'delivery.inApp.readAt': null },
-      { 'delivery.inApp.readAt': new Date() },
+      { recipient: req.user.uid, read: false },
+      { read: true },
     )
-
     res.json({ success: true })
   } catch (err) {
     console.error('markAllRead error:', err)

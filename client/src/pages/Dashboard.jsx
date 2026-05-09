@@ -21,7 +21,7 @@ import {
   KeyRound,
   Headphones,
   Box,
-  Users,
+  Gem,
 } from 'lucide-react'
 import { useUser } from '../hooks/useUser'
 import { useIssues } from '../hooks/useIssues'
@@ -29,8 +29,9 @@ import { usePackages } from '../hooks/usePackages'
 import { useReminders } from '../hooks/useReminders'
 import { ROUTES, ROLES, buildIssuePath } from '../constants/routes'
 import IssueListSkeleton from '../components/IssueListSkeleton'
+import TierBadge from '../components/TierBadge'
 
-/* ---------- Layout (unchanged) ---------- */
+/* ---------- Layout ---------- */
 
 const Wrapper = styled.div`
   max-width: 1200px;
@@ -63,6 +64,9 @@ const Greeting = styled.div`
     color: ${({ theme }) => theme.colors.muted};
     margin: 0;
     font-size: 0.92rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 `
 
@@ -164,7 +168,9 @@ const SectionGrid = styled.div`
 
 const Panel = styled.section`
   background: ${({ theme }) => theme.colors.surface};
-  border: 1px solid ${({ theme }) => theme.colors.border};
+  border: 1px solid
+    ${({ theme, style }) => style?.borderColor || theme.colors.border};
+  border-width: ${({ style }) => style?.borderWidth || '1px'};
   border-radius: ${({ theme }) => theme.radii.lg};
   overflow: hidden;
 `
@@ -243,6 +249,7 @@ const IssueRow = styled(Link)`
       font-size: 0.75rem;
       display: flex;
       gap: 0.5rem;
+      align-items: center;
     }
   }
 
@@ -373,6 +380,8 @@ const REMINDER_CATEGORY = {
   reminder: { color: '#8b5cf6', tint: 'rgba(139,92,246,0.12)' },
 }
 
+const TIER_WEIGHT = { platinum: 0, gold: 1, silver: 2 }
+
 const formatTime = (date) => {
   const d = new Date(date)
   const diffMs = Date.now() - d
@@ -402,7 +411,7 @@ const greeting = () => {
   return 'Good evening'
 }
 
-/* ---------- Issue list helper (unchanged) ---------- */
+/* ---------- Issue list helper (with tier badges) ---------- */
 
 const IssueList = ({ issues, emptyText }) => {
   if (issues.length === 0) {
@@ -425,8 +434,22 @@ const IssueList = ({ issues, emptyText }) => {
           <div className="meta">
             <PriorityDot $priority={issue.priority} />
             <span>{issue.priority}</span>
-            <span>·</span>
-            <span>{issue.commentCount || 0} comments</span>
+            {issue.companyTier && (
+              <>
+                <span>·</span>
+                <TierBadge
+                  tier={issue.companyTier}
+                  size="sm"
+                  showIcon={false}
+                />
+              </>
+            )}
+            {issue.companyId?.name && (
+              <>
+                <span>·</span>
+                <span>{issue.companyId.name}</span>
+              </>
+            )}
           </div>
         </div>
         <span className="time">{formatTime(issue.updatedAt)}</span>
@@ -519,7 +542,14 @@ const ReminderList = ({ reminders, emptyText, linkTo }) => {
 
 /* ---------- Client Dashboard ---------- */
 
-const ClientDashboard = ({ user, issues, loading, packages, reminders }) => {
+const ClientDashboard = ({
+  user,
+  issues,
+  loading,
+  packages,
+  reminders,
+  profile,
+}) => {
   const stats = useMemo(() => {
     const open = issues.filter((i) => i.status === 'open').length
     const inProgress = issues.filter((i) => i.status === 'in_progress').length
@@ -566,7 +596,12 @@ const ClientDashboard = ({ user, issues, loading, packages, reminders }) => {
           <h1>
             {greeting()}, {user.email.split('@')[0]}
           </h1>
-          <p>Here's what's happening with your account.</p>
+          <p>
+            Here's what's happening with your account.
+            {profile?.companyId?.tier && (
+              <TierBadge tier={profile.companyId.tier} size="sm" />
+            )}
+          </p>
         </Greeting>
         <PrimaryButton to={ROUTES.SUPPORT}>
           <Plus size={16} /> New issue
@@ -708,6 +743,13 @@ const AdminDashboard = ({ user, issues, loading, packages, reminders }) => {
     const scheduledReminders = reminders.filter(
       (r) => r.status === 'scheduled',
     ).length
+    const slaBreached = issues.filter(
+      (i) =>
+        i.slaDeadline &&
+        new Date(i.slaDeadline) < new Date() &&
+        i.status !== 'resolved' &&
+        i.status !== 'closed',
+    ).length
 
     return {
       open,
@@ -716,6 +758,7 @@ const AdminDashboard = ({ user, issues, loading, packages, reminders }) => {
       expiringSoon,
       expired,
       scheduledReminders,
+      slaBreached,
     }
   }, [issues, packages, reminders])
 
@@ -733,13 +776,43 @@ const AdminDashboard = ({ user, issues, loading, packages, reminders }) => {
     [issues, user.uid],
   )
 
+  // Tier-first sort: Platinum → Gold → Silver → none, then urgency, then oldest
   const needsTriage = useMemo(
     () =>
       [...issues]
         .filter((i) => !i.assignedTo && i.status === 'open')
         .sort((a, b) => {
+          const tierA = TIER_WEIGHT[a.companyTier] ?? 9
+          const tierB = TIER_WEIGHT[b.companyTier] ?? 9
+          if (tierA !== tierB) return tierA - tierB
           if (a.priority === 'urgent' && b.priority !== 'urgent') return -1
           if (b.priority === 'urgent' && a.priority !== 'urgent') return 1
+          return new Date(a.createdAt) - new Date(b.createdAt)
+        })
+        .slice(0, 5),
+    [issues],
+  )
+
+  // Platinum issues needing attention, SLA-breached first then by deadline
+  const platinumQueue = useMemo(
+    () =>
+      [...issues]
+        .filter(
+          (i) =>
+            i.companyTier === 'platinum' &&
+            i.status !== 'resolved' &&
+            i.status !== 'closed',
+        )
+        .sort((a, b) => {
+          const aBreached =
+            a.slaDeadline && new Date(a.slaDeadline) < new Date()
+          const bBreached =
+            b.slaDeadline && new Date(b.slaDeadline) < new Date()
+          if (aBreached && !bBreached) return -1
+          if (bBreached && !aBreached) return 1
+          if (a.slaDeadline && b.slaDeadline) {
+            return new Date(a.slaDeadline) - new Date(b.slaDeadline)
+          }
           return new Date(a.createdAt) - new Date(b.createdAt)
         })
         .slice(0, 5),
@@ -778,7 +851,8 @@ const AdminDashboard = ({ user, issues, loading, packages, reminders }) => {
         </PrimaryButton>
       </Header>
 
-      <Grid $cols={6}>
+      {/* 7-card stat grid: open, urgent, unassigned, SLA breached, expiring, expired, reminders */}
+      <Grid $cols={7}>
         <StatCard
           to={ROUTES.ADMIN_ISSUES}
           $tint="rgba(59,130,246,0.12)"
@@ -816,6 +890,20 @@ const AdminDashboard = ({ user, issues, loading, packages, reminders }) => {
           <div>
             <div className="num">{stats.unassigned}</div>
             <div className="lbl">Unassigned</div>
+          </div>
+        </StatCard>
+        {/* SLA breached stat */}
+        <StatCard
+          to={ROUTES.ADMIN_ISSUES}
+          $tint="rgba(239,68,68,0.18)"
+          $color="#ef4444"
+        >
+          <span className="icon">
+            <AlertTriangle size={20} />
+          </span>
+          <div>
+            <div className="num">{stats.slaBreached}</div>
+            <div className="lbl">SLA breached</div>
           </div>
         </StatCard>
         <StatCard
@@ -858,6 +946,29 @@ const AdminDashboard = ({ user, issues, loading, packages, reminders }) => {
           </div>
         </StatCard>
       </Grid>
+
+      {/* Platinum needs attention — only shown when there are platinum issues */}
+      {platinumQueue.length > 0 && (
+        <SectionGrid>
+          <Panel style={{ borderColor: '#6366f1', borderWidth: '2px' }}>
+            <PanelHead>
+              <h2>
+                <Gem size={15} style={{ color: '#6366f1' }} /> Platinum needs
+                attention
+              </h2>
+              <Link to={ROUTES.ADMIN_ISSUES}>
+                View all <ArrowRight size={13} />
+              </Link>
+            </PanelHead>
+            <PanelBody>
+              <IssueList
+                issues={platinumQueue}
+                emptyText="No Platinum issues open."
+              />
+            </PanelBody>
+          </Panel>
+        </SectionGrid>
+      )}
 
       <SectionGrid $variant="split">
         <Panel>
@@ -973,6 +1084,7 @@ const Dashboard = () => {
           loading={issuesLoading}
           packages={packages}
           reminders={reminders}
+          profile={profile}
         />
       )}
     </Wrapper>

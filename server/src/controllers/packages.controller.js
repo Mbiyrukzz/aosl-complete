@@ -1,6 +1,7 @@
 import { Package } from '../models/Package.js'
 import { Reminder } from '../models/Reminder.js'
 import { User } from '../models/User.js'
+import { Company } from '../models/Company.js'
 
 const REMINDER_TEMPLATES = {
   hosting: {
@@ -78,11 +79,11 @@ const generateRemindersForPackage = async (pkg, createdBy = 'system') => {
     const scheduledFor = new Date(pkg.expiryDate)
     scheduledFor.setDate(scheduledFor.getDate() - daysBefore)
 
-    // Skip reminders in the past (e.g., 30 days before for a package expiring tomorrow)
     if (scheduledFor < new Date()) continue
 
     const reminder = await Reminder.create({
-      userId: pkg.userId,
+      companyId: pkg.companyId, // ← was userId
+      userId: null, // company-wide; everyone at the company gets it
       title: template.title(pkg, daysBefore),
       message: template.message(pkg, daysBefore, formatDate(pkg.expiryDate)),
       category,
@@ -104,7 +105,7 @@ const generateRemindersForPackage = async (pkg, createdBy = 'system') => {
 export const createPackage = async (req, res) => {
   try {
     const {
-      userId,
+      companyId, // ← was userId
       name,
       description,
       type,
@@ -117,17 +118,17 @@ export const createPackage = async (req, res) => {
       notes,
     } = req.body
 
-    if (!userId || !name?.trim() || !expiryDate) {
+    if (!companyId || !name?.trim() || !expiryDate) {
       return res
         .status(400)
-        .json({ error: 'userId, name, and expiryDate are required' })
+        .json({ error: 'companyId, name, and expiryDate are required' })
     }
 
-    const owner = await User.findById(userId).lean()
-    if (!owner) return res.status(404).json({ error: 'User not found' })
+    const company = await Company.findById(companyId).lean()
+    if (!company) return res.status(404).json({ error: 'Company not found' })
 
     const pkg = await Package.create({
-      userId,
+      companyId,
       name: name.trim(),
       description: description?.trim() || '',
       type: type || 'subscription',
@@ -144,13 +145,12 @@ export const createPackage = async (req, res) => {
       notes: notes?.trim() || '',
     })
 
-    // Auto-generate reminders
     const reminderIds = await generateRemindersForPackage(pkg, req.user.uid)
     pkg.reminderIds = reminderIds
     await pkg.save()
 
     const populated = await Package.findById(pkg._id)
-      .populate('userId', 'displayName email')
+      .populate('companyId', 'name tier')
       .lean()
 
     res.status(201).json({ package: populated })
@@ -164,7 +164,7 @@ export const createPackage = async (req, res) => {
 export const listPackages = async (req, res) => {
   try {
     const filter = {}
-    if (req.query.userId) filter.userId = req.query.userId
+    if (req.query.companyId) filter.companyId = req.query.companyId
     if (req.query.status && req.query.status !== 'all')
       filter.status = req.query.status
     if (req.query.type && req.query.type !== 'all') filter.type = req.query.type
@@ -172,7 +172,7 @@ export const listPackages = async (req, res) => {
     const packages = await Package.find(filter)
       .sort({ expiryDate: 1 })
       .limit(500)
-      .populate('userId', 'displayName email')
+      .populate('companyId', 'name tier')
       .lean()
 
     res.json({ packages })
@@ -182,7 +182,7 @@ export const listPackages = async (req, res) => {
   }
 }
 
-// ----- Admin: update package (regenerates reminders if expiry changes) -----
+// ----- Admin: update package -----
 export const updatePackage = async (req, res) => {
   try {
     const pkg = await Package.findById(req.params.id)
@@ -212,15 +212,11 @@ export const updatePackage = async (req, res) => {
       if (req.body[k] !== undefined) pkg[k] = req.body[k]
     }
 
-    // If expiry or reminder config changed, regenerate
     if (expiryChanged || reminderConfigChanged) {
-      // Cancel old scheduled reminders
       await Reminder.updateMany(
         { _id: { $in: pkg.reminderIds }, status: 'scheduled' },
         { status: 'cancelled' },
       )
-
-      // Create new ones
       const newIds = await generateRemindersForPackage(pkg, req.user.uid)
       pkg.reminderIds = newIds
     }
@@ -228,7 +224,7 @@ export const updatePackage = async (req, res) => {
     await pkg.save()
 
     const populated = await Package.findById(pkg._id)
-      .populate('userId', 'displayName email')
+      .populate('companyId', 'name tier')
       .lean()
 
     res.json({ package: populated })
@@ -264,8 +260,9 @@ export const listMyPackages = async (req, res) => {
   try {
     const me = await User.findOne({ uid: req.user.uid }).lean()
     if (!me) return res.status(404).json({ error: 'Profile not found' })
+    if (!me.companyId) return res.json({ packages: [] }) // no company = no packages
 
-    const packages = await Package.find({ userId: me._id })
+    const packages = await Package.find({ companyId: me.companyId })
       .sort({ expiryDate: 1 })
       .lean()
 

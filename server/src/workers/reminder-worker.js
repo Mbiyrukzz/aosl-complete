@@ -1,5 +1,8 @@
 import { Reminder } from '../models/Reminder.js'
-import { dispatch } from '../services/notification-dispatcher.service.js'
+import {
+  dispatch,
+  dispatchReminderToCompany,
+} from '../services/notification-dispatcher.service.js'
 
 const RECURRENCE_DAYS = {
   daily: 1,
@@ -22,7 +25,7 @@ export const processDueReminders = async () => {
   const due = await Reminder.find({
     status: 'scheduled',
     scheduledFor: { $lte: now },
-  }).limit(50) // bound batch size to keep each tick fast
+  }).limit(50)
 
   if (due.length === 0) return
 
@@ -32,27 +35,24 @@ export const processDueReminders = async () => {
     reminder.lastAttemptAt = now
 
     try {
-      await dispatch({
-        userId: reminder.userId,
-        title: reminder.title,
-        message: reminder.message,
-        category: reminder.category,
-        channels: reminder.channels,
-        reminderId: reminder._id,
-      })
+      // ← changed: fans out to whole company (or specific user if userId is set)
+      const notifications = await dispatchReminderToCompany(reminder)
 
-      // Handle recurrence: schedule next occurrence or mark sent
+      if (notifications.length === 0) {
+        throw new Error('No recipients')
+      }
+
+      // Recurrence logic stays the same
       if (reminder.recurrence !== 'none') {
         const nextDate = advanceDate(reminder.scheduledFor, reminder.recurrence)
-
         if (
           reminder.recurrenceEndDate &&
           nextDate > reminder.recurrenceEndDate
         ) {
-          reminder.status = 'sent' // recurrence finished
+          reminder.status = 'sent'
           reminder.sentAt = now
         } else {
-          reminder.scheduledFor = nextDate // queue next occurrence
+          reminder.scheduledFor = nextDate
         }
       } else {
         reminder.status = 'sent'
