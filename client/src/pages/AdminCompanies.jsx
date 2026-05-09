@@ -22,6 +22,9 @@ import {
 } from 'lucide-react'
 import Modal from '../components/Modal'
 import { useCompanies } from '../hooks/useCompanies'
+import { ROUTES, buildAdminIssuesPath } from '../constants/routes'
+
+/* ---------- Styled components (unchanged) ---------- */
 
 const Wrapper = styled.div`
   max-width: 1100px;
@@ -167,7 +170,6 @@ const Card = styled.div`
     border-color: ${({ theme }) => theme.colors.primary};
   }
 
-  /* Tier accent stripe */
   ${({ $tierColor }) =>
     $tierColor &&
     `&::before {
@@ -504,14 +506,8 @@ const blankForm = {
 /* ----- Component ----- */
 
 const AdminCompanies = () => {
-  const {
-    companies,
-    loading,
-    refetch,
-    createCompany,
-    updateCompany,
-    deleteCompany,
-  } = useCompanies()
+  const { companies, loading, createCompany, updateCompany, deleteCompany } =
+    useCompanies()
 
   const [tierFilter, setTierFilter] = useState('all')
   const [modalOpen, setModalOpen] = useState(false)
@@ -585,7 +581,6 @@ const AdminCompanies = () => {
     silver: companies.filter((c) => c.tier === 'silver').length,
   }
 
-  // Filter + ensure platinum-first display
   const filtered = companies
     .filter((c) => (tierFilter === 'all' ? true : c.tier === tierFilter))
     .sort((a, b) => {
@@ -726,9 +721,7 @@ const AdminCompanies = () => {
                   {company.website && (
                     <span className="item">
                       <Globe size={12} />
-
                       <a
-                        href={company.website}
                         href={company.website}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -741,14 +734,18 @@ const AdminCompanies = () => {
               )}
 
               <Counts>
-                <CountChip to="/admin/clients">
+                <CountChip
+                  to={`${ROUTES.ADMIN_CLIENTS}?companyId=${company._id}`}
+                >
                   <Users size={12} />
                   <span className="num">{company.counts?.users ?? 0}</span>
                   <span>
                     {(company.counts?.users ?? 0) === 1 ? 'user' : 'users'}
                   </span>
                 </CountChip>
-                <CountChip to="/admin/packages">
+                <CountChip
+                  to={`${ROUTES.ADMIN_PACKAGES}?companyId=${company._id}`}
+                >
                   <PackageIcon size={12} />
                   <span className="num">{company.counts?.packages ?? 0}</span>
                   <span>
@@ -757,7 +754,8 @@ const AdminCompanies = () => {
                       : 'packages'}
                   </span>
                 </CountChip>
-                <CountChip to="/admin/issues">
+                {/* Open issues — links to AdminIssues pre-filtered to this company */}
+                <CountChip to={buildAdminIssuesPath(company._id)}>
                   <AlertCircle size={12} />
                   <span className="num">{company.counts?.openIssues ?? 0}</span>
                   <span>open issues</span>

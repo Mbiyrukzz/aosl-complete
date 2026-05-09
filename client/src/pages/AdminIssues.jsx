@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import styled from 'styled-components'
 import {
   Search,
@@ -16,6 +16,8 @@ import {
   Gem,
   Crown,
   Award,
+  Building2,
+  X,
 } from 'lucide-react'
 import { useIssues } from '../hooks/useIssues'
 import { useUser } from '../hooks/useUser'
@@ -65,6 +67,55 @@ const Heading = styled.div`
     color: ${({ theme }) => theme.colors.muted};
     margin: 0;
     font-size: 0.88rem;
+  }
+`
+
+/* Company filter banner — shown when arriving via ?companyId= */
+const CompanyFilterBanner = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: ${({ theme }) => theme.radii.md};
+  font-size: 0.85rem;
+  color: ${({ theme }) => theme.colors.text};
+  margin-bottom: 1.25rem;
+
+  svg {
+    color: #6366f1;
+    flex-shrink: 0;
+  }
+
+  .label {
+    flex: 1;
+    font-weight: 500;
+  }
+
+  .company-name {
+    font-weight: 700;
+  }
+`
+
+const ClearButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  background: transparent;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 999px;
+  color: #6366f1;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    background: rgba(99, 102, 241, 0.1);
   }
 `
 
@@ -137,7 +188,6 @@ const Toolbar = styled.div`
   flex-wrap: wrap;
 `
 
-/* Tier filter chip row */
 const TierFilters = styled.div`
   display: flex;
   align-items: center;
@@ -251,15 +301,12 @@ const Row = styled.div`
   overflow: hidden;
   transition: border-color 0.18s ease;
 
-  /* Tier-coloured left stripe for platinum and gold */
   ${({ $tier }) =>
     $tier === 'platinum' &&
     `&::before {
       content: '';
       position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
+      left: 0; top: 0; bottom: 0;
       width: 3px;
       background: #6366f1;
     }`}
@@ -269,9 +316,7 @@ const Row = styled.div`
     `&::before {
       content: '';
       position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
+      left: 0; top: 0; bottom: 0;
       width: 3px;
       background: #d97706;
     }`}
@@ -354,7 +399,6 @@ const PriorityTag = styled.span`
   color: ${({ $color }) => $color};
 `
 
-/* SLA inline indicator */
 const SLATag = styled.span`
   display: inline-flex;
   align-items: center;
@@ -494,6 +538,7 @@ const PRIORITY_CONFIG = {
 }
 
 const PRIORITY_ORDER = { urgent: 4, high: 3, normal: 2, low: 1 }
+const TIER_WEIGHT = { platinum: 0, gold: 1, silver: 2 }
 
 const formatDate = (date) => {
   const d = new Date(date)
@@ -510,27 +555,63 @@ const AdminIssues = () => {
   const { issues, staff, loading, error, updateStatus, assignIssue } =
     useIssues()
   const { user } = useUser()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [filter, setFilter] = useState('all')
   const [assigneeFilter, setAssigneeFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
-  const [sort, setSort] = useState('newest')
+  const [sort, setSort] = useState('tier')
   const [query, setQuery] = useState('')
   const [tierFilter, setTierFilter] = useState('all')
 
+  // companyId filter — seeded from ?companyId= query param on mount
+  const [companyIdFilter, setCompanyIdFilter] = useState(
+    () => searchParams.get('companyId') || null,
+  )
+
+  // Derive a display name for the active company filter from the issues list.
+  // We grab the first matching issue's companyId.name; it's populated by the
+  // aggregation so it's always available when issues have loaded.
+  const activeCompanyName = useMemo(() => {
+    if (!companyIdFilter) return null
+    const match = issues.find(
+      (i) =>
+        i.companyId?._id === companyIdFilter || i.companyId === companyIdFilter,
+    )
+    return match?.companyId?.name ?? 'Selected company'
+  }, [companyIdFilter, issues])
+
+  const clearCompanyFilter = () => {
+    setCompanyIdFilter(null)
+    // Also remove from the URL so a page refresh doesn't re-apply it
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('companyId')
+      return next
+    })
+  }
+
   const counts = useMemo(() => {
+    // Counts respect the active company filter so the stat cards stay accurate
+    const source = companyIdFilter
+      ? issues.filter(
+          (i) =>
+            i.companyId?._id === companyIdFilter ||
+            i.companyId === companyIdFilter,
+        )
+      : issues
     const c = {
-      all: issues.length,
+      all: source.length,
       open: 0,
       in_progress: 0,
       resolved: 0,
       closed: 0,
     }
-    issues.forEach((i) => {
+    source.forEach((i) => {
       if (c[i.status] !== undefined) c[i.status] += 1
     })
     return c
-  }, [issues])
+  }, [issues, companyIdFilter])
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -541,6 +622,11 @@ const AdminIssues = () => {
       if (assigneeFilter === 'me' && i.assignedTo !== user?.uid) return false
       if (assigneeFilter === 'unassigned' && i.assignedTo) return false
       if (tierFilter !== 'all' && i.companyTier !== tierFilter) return false
+      // Company filter — match on populated _id or raw ObjectId string
+      if (companyIdFilter) {
+        const id = i.companyId?._id ?? i.companyId
+        if (String(id) !== companyIdFilter) return false
+      }
       if (q) {
         const inTitle = i.title.toLowerCase().includes(q)
         const inEmail = i.createdByEmail?.toLowerCase().includes(q)
@@ -552,6 +638,21 @@ const AdminIssues = () => {
 
     return [...filtered].sort((a, b) => {
       switch (sort) {
+        case 'tier': {
+          const tierA = TIER_WEIGHT[a.companyTier] ?? 9
+          const tierB = TIER_WEIGHT[b.companyTier] ?? 9
+          if (tierA !== tierB) return tierA - tierB
+          const statusOrder = {
+            open: 0,
+            in_progress: 1,
+            resolved: 2,
+            closed: 3,
+          }
+          const sA = statusOrder[a.status] ?? 4
+          const sB = statusOrder[b.status] ?? 4
+          if (sA !== sB) return sA - sB
+          return new Date(a.createdAt) - new Date(b.createdAt)
+        }
         case 'oldest':
           return new Date(a.createdAt) - new Date(b.createdAt)
         case 'priority':
@@ -572,6 +673,7 @@ const AdminIssues = () => {
     priorityFilter,
     assigneeFilter,
     tierFilter,
+    companyIdFilter,
     query,
     sort,
     user,
@@ -606,6 +708,20 @@ const AdminIssues = () => {
           </div>
         </Heading>
       </PageHead>
+
+      {/* Company filter banner — only shown when arriving via ?companyId= */}
+      {companyIdFilter && (
+        <CompanyFilterBanner>
+          <Building2 size={15} />
+          <span className="label">
+            Showing issues for{' '}
+            <span className="company-name">{activeCompanyName ?? '…'}</span>
+          </span>
+          <ClearButton onClick={clearCompanyFilter}>
+            <X size={11} /> Clear filter
+          </ClearButton>
+        </CompanyFilterBanner>
+      )}
 
       <Stats>
         {[
@@ -726,6 +842,7 @@ const AdminIssues = () => {
         <SelectWrap>
           <ArrowUpDown size={14} />
           <StyledSelect value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="tier">Tier (Platinum first)</option>
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
             <option value="priority">Priority (high → low)</option>
@@ -739,7 +856,11 @@ const AdminIssues = () => {
       {loading ? (
         <IssueListSkeleton count={6} />
       ) : visible.length === 0 ? (
-        <Empty>No issues match your filters.</Empty>
+        <Empty>
+          {companyIdFilter
+            ? 'No issues found for this company.'
+            : 'No issues match your filters.'}
+        </Empty>
       ) : (
         visible.map((issue) => {
           const status = STATUS_CONFIG[issue.status] || STATUS_CONFIG.open

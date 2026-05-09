@@ -23,10 +23,11 @@ export const ROUTES = {
   SETTINGS: '/settings',
 }
 
-// Helper so consumers don't hardcode `/support/${id}` strings everywhere
 export const buildIssuePath = (id) => `/support/${id}`
-
 export const buildJobPath = (id) => `/careers/${id}`
+
+export const buildAdminIssuesPath = (companyId) =>
+  companyId ? `/admin/issues?companyId=${companyId}` : '/admin/issues'
 
 export const ROLES = {
   CLIENT: 'client',

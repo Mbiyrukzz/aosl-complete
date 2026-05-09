@@ -22,6 +22,8 @@ import {
   Headphones,
   Box,
   Gem,
+  Award,
+  Crown,
 } from 'lucide-react'
 import { useUser } from '../hooks/useUser'
 import { useIssues } from '../hooks/useIssues'
@@ -540,7 +542,121 @@ const ReminderList = ({ reminders, emptyText, linkTo }) => {
   })
 }
 
+/* ---------- Client tier banner ---------- */
+
+const TIER_BANNER_CONFIG = {
+  silver: {
+    color: '#94a3b8',
+    tint: 'rgba(148,163,184,0.12)',
+    border: 'rgba(148,163,184,0.3)',
+    icon: null, // Award — imported below via TIER_CONFIG from TierBadge
+    label: 'Silver Plan',
+    sla: '24-hour response SLA',
+  },
+  gold: {
+    color: '#d97706',
+    tint: 'rgba(217,119,6,0.1)',
+    border: 'rgba(217,119,6,0.3)',
+    label: 'Gold Plan',
+    sla: '8-hour response SLA',
+  },
+  platinum: {
+    color: '#6366f1',
+    tint: 'rgba(99,102,241,0.1)',
+    border: 'rgba(99,102,241,0.3)',
+    label: 'Platinum Plan',
+    sla: '2-hour response SLA',
+  },
+}
+
+const TierBannerWrap = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: ${({ $tint }) => $tint};
+  border: 1px solid ${({ $border }) => $border};
+  border-radius: ${({ theme }) => theme.radii.lg};
+  margin-bottom: 1.5rem;
+`
+
+const TierBannerLeft = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: ${({ theme }) => theme.radii.md};
+  background: ${({ $color }) => $color}22;
+  color: ${({ $color }) => $color};
+  flex-shrink: 0;
+`
+
+const TierBannerText = styled.div`
+  flex: 1;
+
+  .tier-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: ${({ theme }) => theme.colors.text};
+    letter-spacing: -0.01em;
+  }
+
+  .tier-sla {
+    font-size: 0.8rem;
+    color: ${({ theme }) => theme.colors.muted};
+    margin-top: 0.1rem;
+  }
+`
+
+const TierBannerBadgeWrap = styled.div`
+  flex-shrink: 0;
+`
+
+// Lucide icons per tier — imported at top of file via lucide-react
+const TIER_ICONS = { silver: Award, gold: Crown, platinum: Gem }
+// Award and Crown aren't imported yet — add them alongside Gem at the top import
+const TierBanner = ({ tier }) => {
+  const cfg = TIER_BANNER_CONFIG[tier]
+  if (!cfg) return null
+  const Icon = TIER_ICONS[tier]
+  return (
+    <TierBannerWrap $tint={cfg.tint} $border={cfg.border}>
+      <TierBannerLeft $color={cfg.color}>
+        {Icon && <Icon size={22} />}
+      </TierBannerLeft>
+      <TierBannerText>
+        <div className="tier-name">{cfg.label}</div>
+        <div className="tier-sla">{cfg.sla} · Priority support queue</div>
+      </TierBannerText>
+      <TierBannerBadgeWrap>
+        <TierBadge tier={tier} size="md" />
+      </TierBannerBadgeWrap>
+    </TierBannerWrap>
+  )
+}
+
 /* ---------- Client Dashboard ---------- */
+
+// Resolve the client's tier from their profile.
+// getMyProfile populates companyId as { _id, name, tier } — so we read
+// profile.companyId.tier. Guards against the unpopulated case (bare ObjectId
+// string) where typeof companyId === 'string', which would silently give
+// undefined without this helper.
+const resolveClientTier = (profile) => {
+  if (!profile) return null
+  const c = profile.companyId
+  if (!c) return null
+  // Populated: { _id, name, tier }
+  if (typeof c === 'object' && c.tier) return c.tier
+  // Not populated — backend endpoint needs the .populate() fix
+  if (import.meta.env.DEV) {
+    console.warn(
+      '[Dashboard] profile.companyId is not populated — tier badge will not show. Apply the getMyProfile populate fix.',
+    )
+  }
+  return null
+}
 
 const ClientDashboard = ({
   user,
@@ -550,6 +666,8 @@ const ClientDashboard = ({
   reminders,
   profile,
 }) => {
+  const clientTier = resolveClientTier(profile)
+
   const stats = useMemo(() => {
     const open = issues.filter((i) => i.status === 'open').length
     const inProgress = issues.filter((i) => i.status === 'in_progress').length
@@ -596,17 +714,14 @@ const ClientDashboard = ({
           <h1>
             {greeting()}, {user.email.split('@')[0]}
           </h1>
-          <p>
-            Here's what's happening with your account.
-            {profile?.companyId?.tier && (
-              <TierBadge tier={profile.companyId.tier} size="sm" />
-            )}
-          </p>
+          <p>Here's what's happening with your account.</p>
         </Greeting>
         <PrimaryButton to={ROUTES.SUPPORT}>
           <Plus size={16} /> New issue
         </PrimaryButton>
       </Header>
+
+      {clientTier && <TierBanner tier={clientTier} />}
 
       <Grid $cols={4}>
         <StatCard

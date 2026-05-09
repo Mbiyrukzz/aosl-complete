@@ -12,7 +12,6 @@ export const UserProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Fires on login, logout, AND every token refresh (~hourly)
     const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser)
 
@@ -21,11 +20,15 @@ export const UserProvider = ({ children }) => {
           const freshToken = await firebaseUser.getIdToken()
           setToken(freshToken)
 
-          // Pull profile (role, etc.) from our backend
-          const res = await fetch(`${API_BASE}/api/auth/me`, {
+          const res = await fetch(`${API_BASE}/api/users/me`, {
             headers: { Authorization: `Bearer ${freshToken}` },
           })
-          if (res.ok) setProfile(await res.json())
+
+          if (res.ok) {
+            const data = await res.json()
+
+            setProfile(data.user ?? data)
+          }
         } catch (err) {
           console.error('Failed to load profile:', err)
         }
