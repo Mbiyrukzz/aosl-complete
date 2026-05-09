@@ -50,7 +50,6 @@ userSchema.pre('validate', function (next) {
   if (this.role === 'client' && !this.companyId) {
     return next(new Error('Client users must be assigned to a company'))
   }
-  next()
 })
 
 export const User = mongoose.model('User', userSchema)
