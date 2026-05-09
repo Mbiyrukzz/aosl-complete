@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link, Navigate } from 'react-router-dom'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import {
   ArrowLeft,
   Send,
@@ -14,6 +14,8 @@ import {
   Activity,
   Share2,
   Building2,
+  AlertTriangle,
+  ShieldAlert,
 } from 'lucide-react'
 import { useIssues } from '../hooks/useIssues'
 import { useUser } from '../hooks/useUser'
@@ -24,7 +26,9 @@ import TierBadge from '../components/TierBadge'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
 
-/* ---------- Layout ---------- */
+/* ─────────────────────────────────────────────
+   Layout
+───────────────────────────────────────────── */
 
 const Wrapper = styled.div`
   max-width: 1100px;
@@ -36,7 +40,7 @@ const TopBar = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
 `
 
 const BackLink = styled(Link)`
@@ -45,83 +49,170 @@ const BackLink = styled(Link)`
   gap: 0.4rem;
   color: ${({ theme }) => theme.colors.muted};
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   transition: color 0.15s ease;
-
   &:hover {
     color: ${({ theme }) => theme.colors.primary};
   }
 `
 
-const IssueId = styled.span`
-  color: ${({ theme }) => theme.colors.muted};
-  font-size: 0.8rem;
-  font-family: ui-monospace, 'SF Mono', Monaco, monospace;
+const TopBarRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 `
 
-const Grid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 280px;
-  gap: 2rem;
-
-  @media (max-width: 880px) {
-    grid-template-columns: 1fr;
-  }
+const IssueId = styled.span`
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: 0.78rem;
+  font-family: ui-monospace, 'SF Mono', Monaco, monospace;
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
 `
 
 const ShareButton = styled.button`
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.5rem 0.9rem;
+  padding: 0.45rem 0.9rem;
   background: ${({ theme }) => theme.colors.surface};
   color: ${({ theme }) => theme.colors.text};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.md};
   font-weight: 500;
-  font-size: 0.85rem;
+  font-size: 0.83rem;
   cursor: pointer;
   font-family: inherit;
-  transition: border-color 0.18s ease;
-
+  transition: border-color 0.15s ease;
   &:hover {
     border-color: ${({ theme }) => theme.colors.primary};
   }
 `
 
-/* ---------- Company banner ---------- */
+/* ─────────────────────────────────────────────
+   Company / tier banner
+───────────────────────────────────────────── */
+
+const TIER_COLORS = {
+  platinum: {
+    color: '#6366f1',
+    tint: 'rgba(99,102,241,0.08)',
+    border: 'rgba(99,102,241,0.25)',
+  },
+  gold: {
+    color: '#d97706',
+    tint: 'rgba(217,119,6,0.08)',
+    border: 'rgba(217,119,6,0.25)',
+  },
+  silver: {
+    color: '#94a3b8',
+    tint: 'rgba(148,163,184,0.08)',
+    border: 'rgba(148,163,184,0.2)',
+  },
+}
 
 const CompanyBanner = styled.div`
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.85rem;
-  background: ${({ theme }) => theme.colors.surface};
-  border: 1px solid ${({ theme }) => theme.colors.border};
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
   border-radius: ${({ theme }) => theme.radii.md};
-  font-size: 0.85rem;
-  color: ${({ theme }) => theme.colors.muted};
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
+  background: ${({ $tier }) => TIER_COLORS[$tier]?.tint || 'transparent'};
+  border: 1px solid
+    ${({ $tier, theme }) => TIER_COLORS[$tier]?.border || theme.colors.border};
 
   svg {
     color: ${({ theme }) => theme.colors.muted};
+    flex-shrink: 0;
   }
 
-  & > span:first-of-type {
+  .company-name {
+    font-weight: 700;
+    font-size: 0.9rem;
     color: ${({ theme }) => theme.colors.text};
-    font-weight: 600;
+  }
+
+  .divider {
+    width: 1px;
+    height: 14px;
+    background: ${({ theme }) => theme.colors.border};
   }
 `
 
-/* SLA inline indicator */
+/* ─────────────────────────────────────────────
+   Escalation banner
+───────────────────────────────────────────── */
+
+const EscalatedBanner = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 1rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: ${({ theme }) => theme.radii.md};
+  margin-bottom: 1.25rem;
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: #ef4444;
+  svg {
+    flex-shrink: 0;
+  }
+`
+
+/* ─────────────────────────────────────────────
+   Header
+───────────────────────────────────────────── */
+
+const Header = styled.header`
+  margin-bottom: 2rem;
+`
+
+const HeaderMeta = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+  flex-wrap: wrap;
+`
+
+const StatusPill = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: ${({ $status }) =>
+    ({
+      open: 'rgba(59,130,246,0.12)',
+      in_progress: 'rgba(245,158,11,0.12)',
+      resolved: 'rgba(16,185,129,0.12)',
+      closed: 'rgba(107,114,128,0.12)',
+    })[$status] || 'rgba(59,130,246,0.12)'};
+  color: ${({ $status }) =>
+    ({
+      open: '#3b82f6',
+      in_progress: '#d97706',
+      resolved: '#10b981',
+      closed: '#6b7280',
+    })[$status] || '#3b82f6'};
+`
+
 const SLATag = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.1rem 0.5rem;
+  padding: 0.2rem 0.6rem;
   border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  font-weight: 700;
   background: ${({ $breached }) =>
     $breached ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)'};
   color: ${({ $breached }) => ($breached ? '#ef4444' : '#d97706')};
@@ -130,8 +221,9 @@ const SLATag = styled.span`
 const SLAIndicator = ({ deadline }) => {
   const diff = new Date(deadline) - new Date()
   const breached = diff < 0
-  const hours = Math.abs(Math.floor(diff / (1000 * 60 * 60)))
-  const mins = Math.abs(Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)))
+  const abs = Math.abs(diff)
+  const hours = Math.floor(abs / (1000 * 60 * 60))
+  const mins = Math.floor((abs % (1000 * 60 * 60)) / (1000 * 60))
   const label = breached
     ? hours >= 1
       ? `${hours}h overdue`
@@ -139,35 +231,29 @@ const SLAIndicator = ({ deadline }) => {
     : hours >= 1
       ? `${hours}h left`
       : `${mins}m left`
-
   return (
     <SLATag $breached={breached}>
-      <Clock size={10} />
+      <Clock size={11} />
       {label}
     </SLATag>
   )
 }
 
-/* ---------- Header ---------- */
-
-const Header = styled.header`
-  margin-bottom: 2rem;
-`
-
 const Title = styled.h1`
   color: ${({ theme }) => theme.colors.text};
-  font-size: 2rem;
-  line-height: 1.2;
+  font-size: 1.85rem;
+  line-height: 1.25;
   margin: 0 0 0.5rem 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
 `
 
 const Subline = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
   color: ${({ theme }) => theme.colors.muted};
-  font-size: 0.85rem;
+  font-size: 0.82rem;
+  flex-wrap: wrap;
 `
 
 const Dot = styled.span`
@@ -175,52 +261,34 @@ const Dot = styled.span`
   height: 3px;
   border-radius: 50%;
   background: currentColor;
-  opacity: 0.6;
+  opacity: 0.5;
 `
 
-/* ---------- Status Pill ---------- */
+/* ─────────────────────────────────────────────
+   Main grid
+───────────────────────────────────────────── */
 
-const StatusPill = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-
-  background: ${({ $status }) => {
-    const map = {
-      open: 'rgba(59, 130, 246, 0.12)',
-      in_progress: 'rgba(245, 158, 11, 0.12)',
-      resolved: 'rgba(16, 185, 129, 0.12)',
-      closed: 'rgba(107, 114, 128, 0.12)',
-    }
-    return map[$status] || map.open
-  }};
-  color: ${({ $status }) => {
-    const map = {
-      open: '#3b82f6',
-      in_progress: '#d97706',
-      resolved: '#10b981',
-      closed: '#6b7280',
-    }
-    return map[$status] || map.open
-  }};
+const Grid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 270px;
+  gap: 1.75rem;
+  @media (max-width: 880px) {
+    grid-template-columns: 1fr;
+  }
 `
 
-/* ---------- Conversation timeline ---------- */
+/* ─────────────────────────────────────────────
+   Thread / timeline
+───────────────────────────────────────────── */
 
 const Thread = styled.div`
   position: relative;
-  padding-left: 2.5rem;
+  padding-left: 3rem;
 
   &::before {
     content: '';
     position: absolute;
-    left: 1rem;
+    left: 1.25rem;
     top: 0.5rem;
     bottom: 0.5rem;
     width: 2px;
@@ -231,20 +299,61 @@ const Thread = styled.div`
 const Entry = styled.div`
   position: relative;
   margin-bottom: 1.5rem;
+`
 
-  &::before {
-    content: '';
-    position: absolute;
-    left: -1.85rem;
-    top: 0.85rem;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: ${({ theme }) => theme.colors.background};
-    border: 2px solid
-      ${({ theme, $accent }) =>
-        $accent ? theme.colors.primary : theme.colors.border};
+/* The avatar sits over the timeline line */
+const AvatarSlot = styled.div`
+  position: absolute;
+  left: -3rem;
+  top: 0.85rem;
+`
+
+const Avatar = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid ${({ theme }) => theme.colors.background};
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: white;
+
+  /* Role-based fallback colour */
+  background: ${({ $role }) =>
+    $role === 'staff' || $role === 'admin' ? '#6366f1' : '#0ea5e9'};
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
+`
+
+const RolePip = styled.span`
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-left: 0.4rem;
+  ${({ $role }) =>
+    $role === 'staff' || $role === 'admin'
+      ? css`
+          background: rgba(99, 102, 241, 0.15);
+          color: #818cf8;
+        `
+      : css`
+          background: rgba(14, 165, 233, 0.15);
+          color: #38bdf8;
+        `}
 `
 
 const EntryCard = styled.div`
@@ -252,64 +361,87 @@ const EntryCard = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.lg};
   overflow: hidden;
+
+  /* Accent left stripe for staff replies */
+  ${({ $isStaff }) =>
+    $isStaff &&
+    css`
+      border-left: 3px solid #6366f1;
+    `}
 `
 
 const EntryHeader = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.85rem 1.1rem;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
   background: ${({ theme }) => theme.colors.background};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  font-size: 0.85rem;
+  font-size: 0.83rem;
 
   .author {
-    font-weight: 600;
+    font-weight: 700;
     color: ${({ theme }) => theme.colors.text};
   }
 
   .time {
     color: ${({ theme }) => theme.colors.muted};
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     margin-left: auto;
   }
 `
 
-const Avatar = styled.div`
-  display: inline-flex;
+const EntryBody = styled.div`
+  padding: 1rem 1.1rem;
+  color: ${({ theme }) => theme.colors.text};
+  line-height: 1.7;
+  white-space: pre-wrap;
+  font-size: 0.93rem;
+`
+
+/* ─────────────────────────────────────────────
+   Composer
+───────────────────────────────────────────── */
+
+const ComposerRow = styled.div`
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  margin-top: 0.25rem;
+  /* Align with the card column */
+  padding-left: 0rem;
+`
+
+const ComposerAvatar = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: ${({ theme }) => theme.colors.primary};
-  color: white;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
+  color: white;
+  background: ${({ $role }) =>
+    $role === 'staff' || $role === 'admin' ? '#6366f1' : '#0ea5e9'};
+  margin-top: 0.1rem;
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
 `
 
-const EntryBody = styled.div`
-  padding: 1.1rem;
-  color: ${({ theme }) => theme.colors.text};
-  line-height: 1.65;
-  white-space: pre-wrap;
-  font-size: 0.95rem;
-`
-
-/* ---------- Comment composer ---------- */
-
-const Composer = styled.form`
-  position: relative;
-  margin-top: 0.5rem;
-`
-
-const ComposerCard = styled.div`
+const ComposerCard = styled.form`
+  flex: 1;
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.lg};
   transition: border-color 0.2s ease;
-
   &:focus-within {
     border-color: ${({ theme }) => theme.colors.primary};
   }
@@ -317,16 +449,15 @@ const ComposerCard = styled.div`
 
 const Textarea = styled.textarea`
   width: 100%;
-  padding: 1rem 1.1rem;
-  min-height: 90px;
+  padding: 0.9rem 1rem;
+  min-height: 88px;
   resize: vertical;
   border: none;
   background: transparent;
   color: ${({ theme }) => theme.colors.text};
   font-family: inherit;
-  font-size: 0.95rem;
-  line-height: 1.5;
-
+  font-size: 0.92rem;
+  line-height: 1.55;
   &:focus {
     outline: none;
   }
@@ -340,74 +471,80 @@ const ComposerFooter = styled.div`
   border-top: 1px solid ${({ theme }) => theme.colors.border};
 `
 
-const Button = styled.button`
+const PostButton = styled.button`
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 1.05rem;
   background: ${({ theme }) => theme.colors.primary};
   color: white;
   border: none;
   border-radius: ${({ theme }) => theme.radii.md};
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.83rem;
   cursor: pointer;
-  transition: opacity 0.2s ease;
-
+  font-family: inherit;
+  transition: opacity 0.18s ease;
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
   }
-
   &:not(:disabled):hover {
-    opacity: 0.9;
+    opacity: 0.88;
   }
 `
 
-/* ---------- Sidebar ---------- */
+/* ─────────────────────────────────────────────
+   Sidebar
+───────────────────────────────────────────── */
 
 const SidePanel = styled.aside`
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
 `
 
 const PanelSection = styled.section`
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.lg};
-  padding: 1.1rem;
+  overflow: hidden;
 `
 
-const PanelTitle = styled.h3`
-  font-size: 0.7rem;
+const PanelTitle = styled.div`
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   color: ${({ theme }) => theme.colors.muted};
-  margin: 0 0 0.85rem 0;
   font-weight: 700;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.background};
 `
 
 const InfoRow = styled.div`
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.4rem 0;
-  font-size: 0.85rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.83rem;
   color: ${({ theme }) => theme.colors.text};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  &:last-child {
+    border-bottom: none;
+  }
 
   svg {
     color: ${({ theme }) => theme.colors.muted};
     flex-shrink: 0;
   }
-
   .label {
     color: ${({ theme }) => theme.colors.muted};
-    margin-right: auto;
+    flex: 1;
   }
-
   .value {
-    font-weight: 500;
+    font-weight: 600;
+    text-align: right;
   }
 `
 
@@ -415,20 +552,19 @@ const PriorityBadge = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.15rem 0.55rem;
+  padding: 0.2rem 0.6rem;
   border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-
   background: ${({ $priority }) =>
     ({
-      low: 'rgba(107, 114, 128, 0.15)',
-      normal: 'rgba(59, 130, 246, 0.15)',
-      high: 'rgba(245, 158, 11, 0.15)',
-      urgent: 'rgba(239, 68, 68, 0.15)',
-    })[$priority] || 'rgba(107, 114, 128, 0.15)'};
+      low: 'rgba(107,114,128,0.15)',
+      normal: 'rgba(59,130,246,0.15)',
+      high: 'rgba(245,158,11,0.15)',
+      urgent: 'rgba(239,68,68,0.15)',
+    })[$priority] || 'rgba(107,114,128,0.15)'};
   color: ${({ $priority }) =>
     ({
       low: '#6b7280',
@@ -438,12 +574,22 @@ const PriorityBadge = styled.span`
     })[$priority] || '#6b7280'};
 `
 
-/* ---------- Attachments ---------- */
+const SLADeadlineValue = styled.span`
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: ${({ $breached }) => ($breached ? '#ef4444' : 'inherit')};
+  text-align: right;
+`
+
+/* ─────────────────────────────────────────────
+   Attachments
+───────────────────────────────────────────── */
 
 const Attachments = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
+  padding: 0.75rem;
 `
 
 const Thumb = styled.a`
@@ -453,36 +599,35 @@ const Thumb = styled.a`
   overflow: hidden;
   border: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.background};
-  position: relative;
   transition:
     transform 0.18s ease,
     border-color 0.18s ease;
-
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
   }
-
   &:hover {
     border-color: ${({ theme }) => theme.colors.primary};
     transform: translateY(-1px);
   }
 `
 
-/* ---------- Helpers ---------- */
+/* ─────────────────────────────────────────────
+   Helpers
+───────────────────────────────────────────── */
 
 const initials = (email) => (email ? email.slice(0, 2).toUpperCase() : '??')
 
+const isStaffRole = (role) => role === 'staff' || role === 'admin'
+
 const formatTime = (date) => {
   const d = new Date(date)
-  const now = new Date()
-  const diffMs = now - d
+  const diffMs = Date.now() - d
   const diffMin = Math.floor(diffMs / 60000)
   const diffHr = Math.floor(diffMs / 3600000)
   const diffDay = Math.floor(diffMs / 86400000)
-
   if (diffMin < 1) return 'just now'
   if (diffMin < 60) return `${diffMin}m ago`
   if (diffHr < 24) return `${diffHr}h ago`
@@ -491,33 +636,56 @@ const formatTime = (date) => {
 }
 
 const statusIcon = (status) => {
-  switch (status) {
-    case 'open':
-      return <CircleDot size={13} />
-    case 'in_progress':
-      return <Activity size={13} />
-    case 'resolved':
-      return <CheckCircle2 size={13} />
-    case 'closed':
-      return <CircleSlash size={13} />
-    default:
-      return <CircleDot size={13} />
+  const map = {
+    open: CircleDot,
+    in_progress: Activity,
+    resolved: CheckCircle2,
+    closed: CircleSlash,
   }
+  const Icon = map[status] || CircleDot
+  return <Icon size={12} />
 }
 
 const resolveAssignee = (assignedTo, staffList) => {
-  if (!assignedTo) return 'Unassigned'
-  if (!staffList || staffList.length === 0) return 'A staff member'
-  const member = staffList.find((s) => s.uid === assignedTo)
-  return member ? member.email.split('@')[0] : 'A staff member'
+  if (!assignedTo) return null
+  if (!staffList?.length)
+    return { label: 'A staff member', avatarUrl: null, role: 'staff' }
+  const m = staffList.find((s) => s.uid === assignedTo)
+  return m
+    ? { label: m.email.split('@')[0], avatarUrl: m.avatarUrl, role: m.role }
+    : { label: 'A staff member', avatarUrl: null, role: 'staff' }
 }
 
-/* ---------- Component ---------- */
+/* ─────────────────────────────────────────────
+   AvatarImg — shows photo or coloured initials
+───────────────────────────────────────────── */
+
+const AvatarImg = ({ email, avatarUrl, role, size = 36 }) => {
+  const style = { width: size, height: size }
+  return (
+    <Avatar $role={role} style={style}>
+      {avatarUrl ? (
+        <img
+          src={
+            avatarUrl.startsWith('http') ? avatarUrl : `${API_BASE}${avatarUrl}`
+          }
+          alt={email}
+        />
+      ) : (
+        initials(email)
+      )}
+    </Avatar>
+  )
+}
+
+/* ─────────────────────────────────────────────
+   Component
+───────────────────────────────────────────── */
 
 const IssueDetail = () => {
   const { id } = useParams()
   const { staff, issues, loading, addComment } = useIssues()
-  const { user } = useUser()
+  const { user, profile } = useUser()
 
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -528,7 +696,13 @@ const IssueDetail = () => {
   if (loading && !issue) return <IssueDetailSkeleton />
   if (!loading && !issue) return <Navigate to={ROUTES.SUPPORT} replace />
 
-  const assigneeLabel = resolveAssignee(issue.assignedTo, staff)
+  const assignee = resolveAssignee(issue.assignedTo, staff)
+
+  const slaBreached =
+    issue.slaDeadline &&
+    new Date(issue.slaDeadline) < new Date() &&
+    issue.status !== 'resolved' &&
+    issue.status !== 'closed'
 
   const showSLA =
     issue.slaDeadline &&
@@ -549,62 +723,105 @@ const IssueDetail = () => {
     }
   }
 
+  const currentUserRole = profile?.role || 'client'
+
   return (
     <Wrapper>
+      {/* ── Top bar ── */}
       <TopBar>
         <BackLink to={ROUTES.SUPPORT}>
-          <ArrowLeft size={16} /> All issues
+          <ArrowLeft size={15} /> All issues
         </BackLink>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <TopBarRight>
           <ShareButton onClick={() => setShareOpen(true)}>
-            <Share2 size={14} /> Share
+            <Share2 size={13} /> Share
           </ShareButton>
           <IssueId>#{issue._id.slice(-6)}</IssueId>
-        </div>
+        </TopBarRight>
       </TopBar>
 
+      {/* ── Header ── */}
       <Header>
-        <div style={{ marginBottom: '0.75rem' }}>
+        {/* Company + tier banner */}
+        {issue.companyId && (
+          <CompanyBanner $tier={issue.companyTier}>
+            <Building2 size={15} />
+            <span className="company-name">
+              {issue.companyId.name || issue.companyId}
+            </span>
+            {issue.companyTier && (
+              <>
+                <span className="divider" />
+                <TierBadge tier={issue.companyTier} size="sm" />
+              </>
+            )}
+            {showSLA && (
+              <>
+                <span className="divider" />
+                <SLAIndicator deadline={issue.slaDeadline} />
+              </>
+            )}
+          </CompanyBanner>
+        )}
+
+        {/* Escalation warning */}
+        {issue.escalated && (
+          <EscalatedBanner>
+            <ShieldAlert size={15} />
+            This issue was automatically escalated — SLA deadline passed without
+            resolution.
+          </EscalatedBanner>
+        )}
+
+        {/* Status + priority pills */}
+        <HeaderMeta>
           <StatusPill $status={issue.status}>
             {statusIcon(issue.status)}
             {issue.status.replace('_', ' ')}
           </StatusPill>
-        </div>
-
-        {/* Company banner — shown when company info is available */}
-        {issue.companyId && (
-          <CompanyBanner>
-            <Building2 size={14} />
-            <span>{issue.companyId.name || issue.companyId}</span>
-            <TierBadge tier={issue.companyTier} size="sm" />
-            {showSLA && <SLAIndicator deadline={issue.slaDeadline} />}
-          </CompanyBanner>
-        )}
+          <PriorityBadge $priority={issue.priority}>
+            <Flag size={10} />
+            {issue.priority}
+          </PriorityBadge>
+        </HeaderMeta>
 
         <Title>{issue.title}</Title>
+
         <Subline>
-          <span>opened by {issue.createdByEmail}</span>
+          <span>
+            opened by <strong>{issue.createdByEmail}</strong>
+          </span>
           <Dot />
           <span>{formatTime(issue.createdAt)}</span>
           <Dot />
-          <span>{issue.comments?.length || 0} comments</span>
+          <span>
+            {issue.comments?.length || 0} comment
+            {issue.comments?.length !== 1 ? 's' : ''}
+          </span>
         </Subline>
       </Header>
 
       <Grid>
-        {/* Left column — conversation */}
+        {/* ── Left: conversation ── */}
         <div>
           <Thread>
-            {/* Original issue */}
-            <Entry $accent>
-              <EntryCard>
+            {/* Original issue post */}
+            <Entry>
+              <AvatarSlot>
+                <AvatarImg
+                  email={issue.createdByEmail}
+                  avatarUrl={null}
+                  role="client"
+                />
+              </AvatarSlot>
+              <EntryCard $isStaff={false}>
                 <EntryHeader>
-                  <Avatar>{initials(issue.createdByEmail)}</Avatar>
                   <span className="author">
                     {issue.createdByEmail === user?.email
                       ? 'You'
                       : issue.createdByEmail}
                   </span>
+                  <RolePip $role="client">Client</RolePip>
                   <span className="time">
                     opened this issue · {formatTime(issue.createdAt)}
                   </span>
@@ -614,87 +831,143 @@ const IssueDetail = () => {
             </Entry>
 
             {/* Comments */}
-            {(issue.comments || []).map((c) => (
-              <Entry key={c._id || c.createdAt}>
-                <EntryCard>
-                  <EntryHeader>
-                    <Avatar>{initials(c.authorEmail)}</Avatar>
-                    <span className="author">
-                      {c.authorEmail === user?.email ? 'You' : c.authorEmail}
-                    </span>
-                    <span className="time">{formatTime(c.createdAt)}</span>
-                  </EntryHeader>
-                  <EntryBody>{c.text}</EntryBody>
-                </EntryCard>
-              </Entry>
-            ))}
+            {(issue.comments || []).map((c) => {
+              // Determine if commenter is staff by checking against staff list
+              const commentorStaff = staff?.find((s) => s.uid === c.authorUid)
+              const role = commentorStaff ? commentorStaff.role : 'client'
+              const isStaff = isStaffRole(role)
 
-            {/* Composer */}
-            <Entry>
-              <Composer onSubmit={handleAddComment}>
-                <ComposerCard>
-                  <Textarea
-                    placeholder="Leave a comment..."
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                  />
-                  <ComposerFooter>
-                    <Button
-                      type="submit"
-                      disabled={submitting || !comment.trim()}
-                    >
-                      <Send size={14} />
-                      {submitting ? 'Posting...' : 'Post comment'}
-                    </Button>
-                  </ComposerFooter>
-                </ComposerCard>
-              </Composer>
-            </Entry>
+              return (
+                <Entry key={c._id || c.createdAt}>
+                  <AvatarSlot>
+                    <AvatarImg
+                      email={c.authorEmail}
+                      avatarUrl={commentorStaff?.avatarUrl || null}
+                      role={role}
+                    />
+                  </AvatarSlot>
+                  <EntryCard $isStaff={isStaff}>
+                    <EntryHeader>
+                      <span className="author">
+                        {c.authorEmail === user?.email ? 'You' : c.authorEmail}
+                      </span>
+                      <RolePip $role={role}>
+                        {isStaff ? 'Staff' : 'Client'}
+                      </RolePip>
+                      <span className="time">{formatTime(c.createdAt)}</span>
+                    </EntryHeader>
+                    <EntryBody>{c.text}</EntryBody>
+                  </EntryCard>
+                </Entry>
+              )
+            })}
           </Thread>
+
+          {/* Composer — sits below the thread, avatar + card side by side */}
+          <ComposerRow>
+            <ComposerAvatar $role={currentUserRole}>
+              {profile?.avatarUrl ? (
+                <img
+                  src={
+                    profile.avatarUrl.startsWith('http')
+                      ? profile.avatarUrl
+                      : `${API_BASE}${profile.avatarUrl}`
+                  }
+                  alt={user?.email}
+                />
+              ) : (
+                initials(user?.email)
+              )}
+            </ComposerAvatar>
+            <ComposerCard onSubmit={handleAddComment}>
+              <Textarea
+                placeholder="Leave a comment..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+              />
+              <ComposerFooter>
+                <PostButton
+                  type="submit"
+                  disabled={submitting || !comment.trim()}
+                >
+                  <Send size={13} />
+                  {submitting ? 'Posting…' : 'Post comment'}
+                </PostButton>
+              </ComposerFooter>
+            </ComposerCard>
+          </ComposerRow>
         </div>
 
-        {/* Right column — metadata */}
+        {/* ── Right: sidebar ── */}
         <SidePanel>
           <PanelSection>
             <PanelTitle>Details</PanelTitle>
+
             <InfoRow>
-              <Flag size={14} />
+              <Flag size={13} />
               <span className="label">Priority</span>
               <PriorityBadge $priority={issue.priority}>
                 {issue.priority}
               </PriorityBadge>
             </InfoRow>
+
             <InfoRow>
-              <User size={14} />
+              <User size={13} />
               <span className="label">Assignee</span>
-              <span className="value">{assigneeLabel}</span>
+              {assignee ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                  }}
+                >
+                  <AvatarImg
+                    email={assignee.label}
+                    avatarUrl={assignee.avatarUrl}
+                    role={assignee.role}
+                    size={22}
+                  />
+                  <span className="value">{assignee.label}</span>
+                </div>
+              ) : (
+                <span style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>
+                  Unassigned
+                </span>
+              )}
             </InfoRow>
+
             <InfoRow>
-              <Clock size={14} />
+              <Clock size={13} />
               <span className="label">Updated</span>
               <span className="value">{formatTime(issue.updatedAt)}</span>
             </InfoRow>
+
             {issue.slaDeadline && (
               <InfoRow>
-                <Clock size={14} />
+                <AlertTriangle
+                  size={13}
+                  style={{ color: slaBreached ? '#ef4444' : undefined }}
+                />
                 <span className="label">SLA deadline</span>
-                <span className="value">
+                <SLADeadlineValue $breached={slaBreached}>
                   {new Date(issue.slaDeadline).toLocaleString(undefined, {
                     month: 'short',
                     day: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
-                </span>
+                </SLADeadlineValue>
               </InfoRow>
             )}
           </PanelSection>
 
+          {/* Attachments */}
           {issue.attachments?.length > 0 && (
             <PanelSection>
               <PanelTitle>
                 <Paperclip
-                  size={11}
+                  size={10}
                   style={{ display: 'inline', marginRight: 4 }}
                 />
                 Attachments ({issue.attachments.length})
@@ -715,6 +988,7 @@ const IssueDetail = () => {
           )}
         </SidePanel>
       </Grid>
+
       <ShareModal
         issueId={issue._id}
         open={shareOpen}

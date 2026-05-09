@@ -8,6 +8,8 @@ import {
   updateIssueStatus,
   assignIssue,
   addComment,
+  editComment,
+  deleteComment,
   shareIssue,
 } from '../controllers/issues.controller.js'
 import { upload } from '../middleware/upload.js'
@@ -19,7 +21,6 @@ export const listIssuesRoute = {
   handler: listIssues,
 }
 
-// Admin-only: tier-sorted aggregation with company populated
 export const listAllIssuesRoute = {
   path: '/admin/issues',
   method: 'get',
@@ -55,11 +56,26 @@ export const assignIssueRoute = {
   handler: assignIssue,
 }
 
+// Comment routes — addComment accepts up to 3 file attachments
 export const addCommentRoute = {
   path: '/issues/:id/comments',
   method: 'post',
-  middleware: [verifyFirebaseToken],
+  middleware: [verifyFirebaseToken, upload.array('attachments', 3)],
   handler: addComment,
+}
+
+export const editCommentRoute = {
+  path: '/issues/:id/comments/:commentId',
+  method: 'patch',
+  middleware: [verifyFirebaseToken],
+  handler: editComment,
+}
+
+export const deleteCommentRoute = {
+  path: '/issues/:id/comments/:commentId',
+  method: 'delete',
+  middleware: [verifyFirebaseToken],
+  handler: deleteComment,
 }
 
 export const shareIssueRoute = {

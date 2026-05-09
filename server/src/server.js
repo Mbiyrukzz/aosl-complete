@@ -4,15 +4,15 @@ import cors from 'cors'
 import helmet from 'helmet'
 import dotenv from 'dotenv'
 import { Server } from 'socket.io'
-
 import routes from './routes/index.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { initializeSockets } from './sockets/index.js'
 import { connectDB } from './config/db.js'
 import { verifyEmail } from './services/email.service.js'
 import { startReminderWorker } from './workers/reminder-worker.js'
-import { migrateToCompanies } from './migrations/001-companies.js'
 import { startPackageStatusWorker } from './workers/package-status-worker.js'
+import { startSLAWorker } from './workers/sla-worker.js'
+import { migrateToCompanies } from './migrations/001-companies.js'
 
 dotenv.config()
 
@@ -27,8 +27,6 @@ await Promise.race([
   verifyEmail(),
   new Promise((resolve) => setTimeout(resolve, 5000)),
 ]).catch(() => {})
-startReminderWorker()
-startPackageStatusWorker()
 
 // 2. Create HTTP + Socket.IO together
 const server = http.createServer(app)
@@ -37,7 +35,12 @@ const io = new Server(server, {
 })
 initializeSockets(io)
 
-// 3. Global middleware
+// 3. Start workers — SLA worker needs io so it can emit issue:updated in real time
+startReminderWorker()
+startPackageStatusWorker()
+startSLAWorker(io) // every 5 minutes by default
+
+// 4. Global middleware
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -47,16 +50,16 @@ app.use(cors({ origin: CLIENT_URL, credentials: true }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-// 4. Static
+// 5. Static
 app.use('/uploads', express.static('uploads'))
 
-// 5. Inject io so controllers can emit
+// 6. Inject io so controllers can emit
 app.use((req, res, next) => {
   req.io = io
   next()
 })
 
-// 6. Routes
+// 7. Routes
 routes.forEach((route) => {
   if (!route.path || !route.method || !route.handler) {
     console.error('❌ Invalid route:', route)
@@ -68,7 +71,7 @@ routes.forEach((route) => {
   app[route.method](fullPath, ...middleware, route.handler)
 })
 
-// 7. Error handler — last
+// 8. Error handler — last
 app.use(errorHandler)
 
 server.listen(PORT, () => {

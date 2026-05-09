@@ -19,6 +19,8 @@ import {
   assignIssueRoute,
   addCommentRoute,
   shareIssueRoute,
+  editCommentRoute,
+  deleteCommentRoute,
 } from './issuesRoutes.js'
 import {
   listNotificationsRoute,
@@ -89,6 +91,8 @@ const routes = [
   updateIssueStatusRoute,
   assignIssueRoute,
   addCommentRoute,
+  editCommentRoute,
+  deleteCommentRoute,
   shareIssueRoute,
 
   listNotificationsRoute,
