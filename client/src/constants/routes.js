@@ -20,6 +20,8 @@ export const ROUTES = {
   ADMIN_PACKAGES: '/admin/packages',
   MY_PACKAGES: '/my-packages',
   MY_REMINDERS: '/my-reminders',
+  ADMIN_INVOICES: '/accounts/invoices',
+  ADMIN_QUOTATIONS: '/accounts/quotations',
   SETTINGS: '/settings',
 }
 

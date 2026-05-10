@@ -14,6 +14,8 @@ import {
   Inbox,
   Users,
   Package,
+  FileText,
+  FileQuestion,
   Settings as SettingsIcon,
 } from 'lucide-react'
 import { auth } from '../services/firebase'
@@ -250,6 +252,15 @@ const Sidebar = () => {
               <Building2 size={18} />
               <span className="label">Companies</span>
             </Item>
+            <Item to={ROUTES.ADMIN_QUOTATIONS}>
+              <FileQuestion size={18} />
+              <span className="label">Quotations</span>
+            </Item>
+            <Item to={ROUTES.ADMIN_INVOICES}>
+              <FileText size={18} />
+              <span className="label">Invoices</span>
+            </Item>
+
             <Item to={ROUTES.ADMIN_CLIENTS}>
               <Users size={18} />
               <span className="label">Clients</span>

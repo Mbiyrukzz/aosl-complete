@@ -57,7 +57,7 @@ const imageFilter = (req, file, cb) => {
 export const upload = multer({
   storage: imageStorage,
   fileFilter: imageFilter,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB for issue attachments
 })
 
 /* ---------- New CV upload (PDF, DOC, DOCX) ---------- */

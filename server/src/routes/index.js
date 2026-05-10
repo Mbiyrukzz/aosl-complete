@@ -64,6 +64,22 @@ import {
   listCompaniesRoute,
   updateCompanyRoute,
 } from './companiesRoutes.js'
+import {
+  accountsStatsRoute,
+  convertQuotationRoute,
+  createInvoiceRoute,
+  createQuotationRoute,
+  deleteQuotationRoute,
+  getInvoiceRoute,
+  getQuotationRoute,
+  listInvoicesRoute,
+  listQuotationsRoute,
+  sendInvoiceRoute,
+  sendQuotationRoute,
+  updateInvoiceRoute,
+  updateQuotationRoute,
+  uploadInvoicePDFRoute,
+} from './Accountsroutes.js'
 
 const routes = [
   healthRoute,
@@ -130,6 +146,22 @@ const routes = [
   updatePackageRoute,
   deletePackageRoute,
   myPackagesRoute,
+
+  listQuotationsRoute,
+  getQuotationRoute,
+  createQuotationRoute,
+  updateQuotationRoute,
+  deleteQuotationRoute,
+  sendQuotationRoute,
+
+  convertQuotationRoute,
+  listInvoicesRoute,
+  getInvoiceRoute,
+  createInvoiceRoute,
+  updateInvoiceRoute,
+  uploadInvoicePDFRoute,
+  sendInvoiceRoute,
+  accountsStatsRoute,
 ]
 
 export default routes

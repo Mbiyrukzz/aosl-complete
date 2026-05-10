@@ -7,6 +7,7 @@ import GlobalStyles from '../styles/GlobalStyles'
 import { PackagesProvider } from './PackagesProvider'
 import { RemindersProvider } from './RemindersProvider'
 import { CompaniesProvider } from './CompaniesProvider'
+import { AccountsProvider } from './AccountsProvider'
 
 function AppProvider({ children }) {
   return (
@@ -16,11 +17,13 @@ function AppProvider({ children }) {
         <SocketProvider>
           <NotificationsProvider>
             <CompaniesProvider>
-              <IssuesProvider>
-                <PackagesProvider>
-                  <RemindersProvider>{children} </RemindersProvider>
-                </PackagesProvider>
-              </IssuesProvider>
+              <AccountsProvider>
+                <IssuesProvider>
+                  <PackagesProvider>
+                    <RemindersProvider>{children} </RemindersProvider>
+                  </PackagesProvider>
+                </IssuesProvider>
+              </AccountsProvider>
             </CompaniesProvider>
           </NotificationsProvider>
         </SocketProvider>

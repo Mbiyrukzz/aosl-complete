@@ -27,6 +27,8 @@ import MyPackages from './src/pages/MyPackages'
 import MyReminders from './src/pages/MyReminders'
 import AuthAction from './src/pages/AuthAction'
 import AdminCompanies from './src/pages/AdminCompanies'
+import AdminInvoices from './src/pages/AdminInvoices'
+import AdminQuotations from './src/pages/AdminQuotations'
 
 const AppRoutes = () => {
   return (
@@ -71,6 +73,8 @@ const AppRoutes = () => {
           <Route path={ROUTES.ADMIN_PACKAGES} element={<AdminPackages />} />
           <Route path={ROUTES.ADMIN_CLIENTS} element={<AdminClients />} />
           <Route path={ROUTES.ADMIN_COMPANIES} element={<AdminCompanies />} />
+          <Route path={ROUTES.ADMIN_INVOICES} element={<AdminInvoices />} />
+          <Route path={ROUTES.ADMIN_QUOTATIONS} element={<AdminQuotations />} />
           <Route path={ROUTES.SETTINGS} element={<Settings />} />
         </Route>
       </Route>
