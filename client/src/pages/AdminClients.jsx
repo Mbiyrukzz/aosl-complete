@@ -19,6 +19,7 @@ import {
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
 import Modal from '../components/Modal'
 import { useCompanies } from '../hooks/useCompanies'
+import { FullScreenLoader } from '../components/Loader'
 
 const Wrapper = styled.div`
   max-width: 1100px;
@@ -610,7 +611,7 @@ const AdminClients = () => {
       </PageHead>
 
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Loading...</p>
+        <FullScreenLoader label="Loading clients and team members..." />
       ) : users.length === 0 ? (
         <Empty>
           <p style={{ marginBottom: '1.25rem' }}>

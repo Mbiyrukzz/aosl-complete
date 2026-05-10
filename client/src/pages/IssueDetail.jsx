@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, Link, Navigate } from 'react-router-dom'
 import styled, { css } from 'styled-components'
 import {
@@ -16,6 +16,11 @@ import {
   Building2,
   AlertTriangle,
   ShieldAlert,
+  Pencil,
+  Trash2,
+  X,
+  Check,
+  Image,
 } from 'lucide-react'
 import { useIssues } from '../hooks/useIssues'
 import { useUser } from '../hooks/useUser'
@@ -96,21 +101,9 @@ const ShareButton = styled.button`
 ───────────────────────────────────────────── */
 
 const TIER_COLORS = {
-  platinum: {
-    color: '#6366f1',
-    tint: 'rgba(99,102,241,0.08)',
-    border: 'rgba(99,102,241,0.25)',
-  },
-  gold: {
-    color: '#d97706',
-    tint: 'rgba(217,119,6,0.08)',
-    border: 'rgba(217,119,6,0.25)',
-  },
-  silver: {
-    color: '#94a3b8',
-    tint: 'rgba(148,163,184,0.08)',
-    border: 'rgba(148,163,184,0.2)',
-  },
+  platinum: { tint: 'rgba(99,102,241,0.08)', border: 'rgba(99,102,241,0.25)' },
+  gold: { tint: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.25)' },
+  silver: { tint: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.2)' },
 }
 
 const CompanyBanner = styled.div`
@@ -123,28 +116,21 @@ const CompanyBanner = styled.div`
   background: ${({ $tier }) => TIER_COLORS[$tier]?.tint || 'transparent'};
   border: 1px solid
     ${({ $tier, theme }) => TIER_COLORS[$tier]?.border || theme.colors.border};
-
   svg {
     color: ${({ theme }) => theme.colors.muted};
     flex-shrink: 0;
   }
-
   .company-name {
     font-weight: 700;
     font-size: 0.9rem;
     color: ${({ theme }) => theme.colors.text};
   }
-
   .divider {
     width: 1px;
     height: 14px;
     background: ${({ theme }) => theme.colors.border};
   }
 `
-
-/* ─────────────────────────────────────────────
-   Escalation banner
-───────────────────────────────────────────── */
 
 const EscalatedBanner = styled.div`
   display: flex;
@@ -222,8 +208,8 @@ const SLAIndicator = ({ deadline }) => {
   const diff = new Date(deadline) - new Date()
   const breached = diff < 0
   const abs = Math.abs(diff)
-  const hours = Math.floor(abs / (1000 * 60 * 60))
-  const mins = Math.floor((abs % (1000 * 60 * 60)) / (1000 * 60))
+  const hours = Math.floor(abs / 3600000)
+  const mins = Math.floor((abs % 3600000) / 60000)
   const label = breached
     ? hours >= 1
       ? `${hours}h overdue`
@@ -265,7 +251,7 @@ const Dot = styled.span`
 `
 
 /* ─────────────────────────────────────────────
-   Main grid
+   Grid
 ───────────────────────────────────────────── */
 
 const Grid = styled.div`
@@ -284,7 +270,6 @@ const Grid = styled.div`
 const Thread = styled.div`
   position: relative;
   padding-left: 3rem;
-
   &::before {
     content: '';
     position: absolute;
@@ -301,7 +286,6 @@ const Entry = styled.div`
   margin-bottom: 1.5rem;
 `
 
-/* The avatar sits over the timeline line */
 const AvatarSlot = styled.div`
   position: absolute;
   left: -3rem;
@@ -322,11 +306,8 @@ const Avatar = styled.div`
   font-weight: 700;
   text-transform: uppercase;
   color: white;
-
-  /* Role-based fallback colour */
   background: ${({ $role }) =>
     $role === 'staff' || $role === 'admin' ? '#6366f1' : '#0ea5e9'};
-
   img {
     width: 100%;
     height: 100%;
@@ -361,12 +342,15 @@ const EntryCard = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.lg};
   overflow: hidden;
-
-  /* Accent left stripe for staff replies */
   ${({ $isStaff }) =>
     $isStaff &&
     css`
       border-left: 3px solid #6366f1;
+    `}
+  ${({ $deleted }) =>
+    $deleted &&
+    css`
+      opacity: 0.55;
     `}
 `
 
@@ -374,29 +358,177 @@ const EntryHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  padding: 0.65rem 1rem;
   background: ${({ theme }) => theme.colors.background};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   font-size: 0.83rem;
-
   .author {
     font-weight: 700;
     color: ${({ theme }) => theme.colors.text};
   }
-
   .time {
     color: ${({ theme }) => theme.colors.muted};
     font-size: 0.75rem;
-    margin-left: auto;
+  }
+  .edited {
+    color: ${({ theme }) => theme.colors.muted};
+    font-size: 0.7rem;
+    font-style: italic;
+  }
+  .spacer {
+    flex: 1;
+  }
+`
+
+const EntryActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  ${Entry}:hover & {
+    opacity: 1;
+  }
+`
+
+const ActionBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: ${({ theme }) => theme.colors.muted};
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+  &:hover {
+    background: ${({ $danger }) =>
+      $danger ? 'rgba(239,68,68,0.1)' : 'rgba(99,102,241,0.1)'};
+    color: ${({ $danger }) => ($danger ? '#ef4444' : '#6366f1')};
   }
 `
 
 const EntryBody = styled.div`
-  padding: 1rem 1.1rem;
+  padding: 0.9rem 1.1rem;
   color: ${({ theme }) => theme.colors.text};
   line-height: 1.7;
   white-space: pre-wrap;
   font-size: 0.93rem;
+`
+
+const DeletedPlaceholder = styled.div`
+  padding: 0.9rem 1.1rem;
+  color: ${({ theme }) => theme.colors.muted};
+  font-style: italic;
+  font-size: 0.85rem;
+`
+
+/* Inline edit textarea inside entry card */
+const EditArea = styled.textarea`
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+  min-height: 80px;
+  resize: vertical;
+  border: none;
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.background};
+  color: ${({ theme }) => theme.colors.text};
+  font-family: inherit;
+  font-size: 0.93rem;
+  line-height: 1.55;
+  &:focus {
+    outline: none;
+  }
+`
+
+const EditFooter = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+`
+
+const SmallBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid
+    ${({ $primary, theme }) =>
+      $primary ? theme.colors.primary : theme.colors.border};
+  background: ${({ $primary, theme }) =>
+    $primary ? theme.colors.primary : 'transparent'};
+  color: ${({ $primary, theme }) => ($primary ? 'white' : theme.colors.muted)};
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`
+
+/* ─────────────────────────────────────────────
+   Comment attachment thumbnails
+───────────────────────────────────────────── */
+
+const CommentAttachments = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0 1.1rem 0.85rem;
+`
+
+const CommentThumb = styled.a`
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: ${({ theme }) => theme.radii.md};
+  overflow: hidden;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.background};
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+    transform: translateY(-1px);
+  }
+`
+
+const FileChip = styled.a`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  background: ${({ theme }) => theme.colors.background};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 6px;
+  color: ${({ theme }) => theme.colors.text};
+  text-decoration: none;
+  font-size: 0.75rem;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
 `
 
 /* ─────────────────────────────────────────────
@@ -407,9 +539,7 @@ const ComposerRow = styled.div`
   display: flex;
   gap: 0.85rem;
   align-items: flex-start;
-  margin-top: 0.25rem;
-  /* Align with the card column */
-  padding-left: 0rem;
+  padding-left: 0;
 `
 
 const ComposerAvatar = styled.div`
@@ -463,12 +593,77 @@ const Textarea = styled.textarea`
   }
 `
 
+/* File preview strip above composer footer */
+const FileStrip = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0.75rem;
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+`
+
+const FileTag = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  background: ${({ theme }) => theme.colors.background};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 6px;
+  font-size: 0.73rem;
+  color: ${({ theme }) => theme.colors.text};
+  max-width: 140px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: ${({ theme }) => theme.colors.muted};
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    &:hover {
+      color: #ef4444;
+    }
+  }
+`
+
 const ComposerFooter = styled.div`
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   padding: 0.5rem 0.6rem;
   border-top: 1px solid ${({ theme }) => theme.colors.border};
+`
+
+const AttachBtn = styled.label`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: ${({ theme }) => theme.radii.md};
+  font-size: 0.78rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  color: ${({ theme }) => theme.colors.muted};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: transparent;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+  input {
+    display: none;
+  }
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+    color: ${({ theme }) => theme.colors.primary};
+  }
 `
 
 const PostButton = styled.button`
@@ -533,7 +728,6 @@ const InfoRow = styled.div`
   &:last-child {
     border-bottom: none;
   }
-
   svg {
     color: ${({ theme }) => theme.colors.muted};
     flex-shrink: 0;
@@ -566,26 +760,21 @@ const PriorityBadge = styled.span`
       urgent: 'rgba(239,68,68,0.15)',
     })[$priority] || 'rgba(107,114,128,0.15)'};
   color: ${({ $priority }) =>
-    ({
-      low: '#6b7280',
-      normal: '#3b82f6',
-      high: '#d97706',
-      urgent: '#ef4444',
-    })[$priority] || '#6b7280'};
+    ({ low: '#6b7280', normal: '#3b82f6', high: '#d97706', urgent: '#ef4444' })[
+      $priority
+    ] || '#6b7280'};
 `
 
-const SLADeadlineValue = styled.span`
+const SLAValue = styled.span`
   font-weight: 600;
   font-size: 0.8rem;
-  color: ${({ $breached }) => ($breached ? '#ef4444' : 'inherit')};
   text-align: right;
+  color: ${({ $breached }) => ($breached ? '#ef4444' : 'inherit')};
 `
 
-/* ─────────────────────────────────────────────
-   Attachments
-───────────────────────────────────────────── */
+/* ─── Issue attachments (sidebar) ─────────── */
 
-const Attachments = styled.div`
+const AttachGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
@@ -619,8 +808,8 @@ const Thumb = styled.a`
 ───────────────────────────────────────────── */
 
 const initials = (email) => (email ? email.slice(0, 2).toUpperCase() : '??')
-
 const isStaffRole = (role) => role === 'staff' || role === 'admin'
+const isImage = (mimetype) => mimetype?.startsWith('image/')
 
 const formatTime = (date) => {
   const d = new Date(date)
@@ -656,25 +845,49 @@ const resolveAssignee = (assignedTo, staffList) => {
     : { label: 'A staff member', avatarUrl: null, role: 'staff' }
 }
 
-/* ─────────────────────────────────────────────
-   AvatarImg — shows photo or coloured initials
-───────────────────────────────────────────── */
+const AvatarImg = ({ email, avatarUrl, role, size = 36 }) => (
+  <Avatar $role={role} style={{ width: size, height: size }}>
+    {avatarUrl ? (
+      <img
+        src={
+          avatarUrl.startsWith('http') ? avatarUrl : `${API_BASE}${avatarUrl}`
+        }
+        alt={email}
+      />
+    ) : (
+      initials(email)
+    )}
+  </Avatar>
+)
 
-const AvatarImg = ({ email, avatarUrl, role, size = 36 }) => {
-  const style = { width: size, height: size }
+/* Renders attachments below a comment body */
+const CommentAttachList = ({ attachments }) => {
+  if (!attachments?.length) return null
   return (
-    <Avatar $role={role} style={style}>
-      {avatarUrl ? (
-        <img
-          src={
-            avatarUrl.startsWith('http') ? avatarUrl : `${API_BASE}${avatarUrl}`
-          }
-          alt={email}
-        />
-      ) : (
-        initials(email)
+    <CommentAttachments>
+      {attachments.map((att) =>
+        isImage(att.mimetype) ? (
+          <CommentThumb
+            key={att._id || att.filename}
+            href={`${API_BASE}${att.url}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <img src={`${API_BASE}${att.url}`} alt={att.originalName} />
+          </CommentThumb>
+        ) : (
+          <FileChip
+            key={att._id || att.filename}
+            href={`${API_BASE}${att.url}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Paperclip size={11} />
+            {att.originalName}
+          </FileChip>
+        ),
       )}
-    </Avatar>
+    </CommentAttachments>
   )
 }
 
@@ -684,12 +897,21 @@ const AvatarImg = ({ email, avatarUrl, role, size = 36 }) => {
 
 const IssueDetail = () => {
   const { id } = useParams()
-  const { staff, issues, loading, addComment } = useIssues()
+  const { staff, issues, loading, addComment, editComment, deleteComment } =
+    useIssues()
   const { user, profile } = useUser()
 
   const [comment, setComment] = useState('')
+  const [files, setFiles] = useState([]) // File[] for new comment
   const [submitting, setSubmitting] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+
+  // Edit state — tracks which comment is being edited
+  const [editingId, setEditingId] = useState(null)
+  const [editText, setEditText] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+
+  const fileInputRef = useRef(null)
 
   const issue = issues.find((i) => i._id === id)
 
@@ -697,6 +919,7 @@ const IssueDetail = () => {
   if (!loading && !issue) return <Navigate to={ROUTES.SUPPORT} replace />
 
   const assignee = resolveAssignee(issue.assignedTo, staff)
+  const currentUserRole = profile?.role || 'client'
 
   const slaBreached =
     issue.slaDeadline &&
@@ -709,13 +932,15 @@ const IssueDetail = () => {
     issue.status !== 'resolved' &&
     issue.status !== 'closed'
 
+  /* ── comment submit ── */
   const handleAddComment = async (e) => {
     e.preventDefault()
-    if (!comment.trim()) return
+    if (!comment.trim() && files.length === 0) return
     setSubmitting(true)
     try {
-      await addComment(id, comment.trim())
+      await addComment(id, comment.trim(), files)
       setComment('')
+      setFiles([])
     } catch (err) {
       alert('Failed to post comment: ' + err.message)
     } finally {
@@ -723,7 +948,51 @@ const IssueDetail = () => {
     }
   }
 
-  const currentUserRole = profile?.role || 'client'
+  const handleFileChange = (e) => {
+    const picked = Array.from(e.target.files || [])
+    setFiles((prev) => [...prev, ...picked].slice(0, 3))
+    e.target.value = ''
+  }
+
+  const removeFile = (idx) =>
+    setFiles((prev) => prev.filter((_, i) => i !== idx))
+
+  /* ── edit submit ── */
+  const startEdit = (c) => {
+    setEditingId(c._id)
+    setEditText(c.text)
+  }
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditText('')
+  }
+
+  const handleEditSave = async (commentId) => {
+    if (!editText.trim()) return
+    setEditSaving(true)
+    try {
+      await editComment(id, commentId, editText.trim())
+      cancelEdit()
+    } catch (err) {
+      alert('Failed to save edit: ' + err.message)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  /* ── delete ── */
+  const handleDelete = async (commentId) => {
+    if (!confirm('Delete this comment? This cannot be undone.')) return
+    try {
+      await deleteComment(id, commentId)
+    } catch (err) {
+      alert('Failed to delete comment: ' + err.message)
+    }
+  }
+
+  /* ── can edit/delete check ── */
+  const canModify = (c) =>
+    c.authorUid === user?.uid || isStaffRole(profile?.role)
 
   return (
     <Wrapper>
@@ -742,7 +1011,6 @@ const IssueDetail = () => {
 
       {/* ── Header ── */}
       <Header>
-        {/* Company + tier banner */}
         {issue.companyId && (
           <CompanyBanner $tier={issue.companyTier}>
             <Building2 size={15} />
@@ -764,7 +1032,6 @@ const IssueDetail = () => {
           </CompanyBanner>
         )}
 
-        {/* Escalation warning */}
         {issue.escalated && (
           <EscalatedBanner>
             <ShieldAlert size={15} />
@@ -773,20 +1040,17 @@ const IssueDetail = () => {
           </EscalatedBanner>
         )}
 
-        {/* Status + priority pills */}
         <HeaderMeta>
           <StatusPill $status={issue.status}>
             {statusIcon(issue.status)}
             {issue.status.replace('_', ' ')}
           </StatusPill>
           <PriorityBadge $priority={issue.priority}>
-            <Flag size={10} />
-            {issue.priority}
+            <Flag size={10} /> {issue.priority}
           </PriorityBadge>
         </HeaderMeta>
 
         <Title>{issue.title}</Title>
-
         <Subline>
           <span>
             opened by <strong>{issue.createdByEmail}</strong>
@@ -795,8 +1059,8 @@ const IssueDetail = () => {
           <span>{formatTime(issue.createdAt)}</span>
           <Dot />
           <span>
-            {issue.comments?.length || 0} comment
-            {issue.comments?.length !== 1 ? 's' : ''}
+            {issue.comments?.filter((c) => !c.deleted).length || 0} comment
+            {issue.comments?.filter((c) => !c.deleted).length !== 1 ? 's' : ''}
           </span>
         </Subline>
       </Header>
@@ -822,8 +1086,9 @@ const IssueDetail = () => {
                       : issue.createdByEmail}
                   </span>
                   <RolePip $role="client">Client</RolePip>
+                  <span className="spacer" />
                   <span className="time">
-                    opened this issue · {formatTime(issue.createdAt)}
+                    opened · {formatTime(issue.createdAt)}
                   </span>
                 </EntryHeader>
                 <EntryBody>{issue.description}</EntryBody>
@@ -832,10 +1097,10 @@ const IssueDetail = () => {
 
             {/* Comments */}
             {(issue.comments || []).map((c) => {
-              // Determine if commenter is staff by checking against staff list
               const commentorStaff = staff?.find((s) => s.uid === c.authorUid)
               const role = commentorStaff ? commentorStaff.role : 'client'
               const isStaff = isStaffRole(role)
+              const isEditing = editingId === c._id
 
               return (
                 <Entry key={c._id || c.createdAt}>
@@ -846,7 +1111,7 @@ const IssueDetail = () => {
                       role={role}
                     />
                   </AvatarSlot>
-                  <EntryCard $isStaff={isStaff}>
+                  <EntryCard $isStaff={isStaff} $deleted={c.deleted}>
                     <EntryHeader>
                       <span className="author">
                         {c.authorEmail === user?.email ? 'You' : c.authorEmail}
@@ -854,16 +1119,72 @@ const IssueDetail = () => {
                       <RolePip $role={role}>
                         {isStaff ? 'Staff' : 'Client'}
                       </RolePip>
+                      <span className="spacer" />
+                      {c.edited && !c.deleted && (
+                        <span className="edited">edited</span>
+                      )}
                       <span className="time">{formatTime(c.createdAt)}</span>
+
+                      {/* Edit / delete — only shown for author or staff */}
+                      {!c.deleted && canModify(c) && (
+                        <EntryActions>
+                          <ActionBtn
+                            title="Edit"
+                            onClick={() =>
+                              isEditing ? cancelEdit() : startEdit(c)
+                            }
+                          >
+                            <Pencil size={13} />
+                          </ActionBtn>
+                          <ActionBtn
+                            title="Delete"
+                            $danger
+                            onClick={() => handleDelete(c._id)}
+                          >
+                            <Trash2 size={13} />
+                          </ActionBtn>
+                        </EntryActions>
+                      )}
                     </EntryHeader>
-                    <EntryBody>{c.text}</EntryBody>
+
+                    {c.deleted ? (
+                      <DeletedPlaceholder>
+                        This comment was deleted.
+                      </DeletedPlaceholder>
+                    ) : isEditing ? (
+                      <>
+                        <EditArea
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          autoFocus
+                        />
+                        <EditFooter>
+                          <SmallBtn onClick={cancelEdit}>
+                            <X size={12} /> Cancel
+                          </SmallBtn>
+                          <SmallBtn
+                            $primary
+                            onClick={() => handleEditSave(c._id)}
+                            disabled={editSaving || !editText.trim()}
+                          >
+                            <Check size={12} />
+                            {editSaving ? 'Saving…' : 'Save'}
+                          </SmallBtn>
+                        </EditFooter>
+                      </>
+                    ) : (
+                      <>
+                        <EntryBody>{c.text}</EntryBody>
+                        <CommentAttachList attachments={c.attachments} />
+                      </>
+                    )}
                   </EntryCard>
                 </Entry>
               )
             })}
           </Thread>
 
-          {/* Composer — sits below the thread, avatar + card side by side */}
+          {/* Composer */}
           <ComposerRow>
             <ComposerAvatar $role={currentUserRole}>
               {profile?.avatarUrl ? (
@@ -879,16 +1200,48 @@ const IssueDetail = () => {
                 initials(user?.email)
               )}
             </ComposerAvatar>
+
             <ComposerCard onSubmit={handleAddComment}>
               <Textarea
                 placeholder="Leave a comment..."
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
               />
+
+              {/* Staged files preview */}
+              {files.length > 0 && (
+                <FileStrip>
+                  {files.map((f, i) => (
+                    <FileTag key={i}>
+                      <Image size={11} />
+                      {f.name}
+                      <button type="button" onClick={() => removeFile(i)}>
+                        <X size={11} />
+                      </button>
+                    </FileTag>
+                  ))}
+                </FileStrip>
+              )}
+
               <ComposerFooter>
+                {/* File attach button */}
+                <AttachBtn title="Attach files (max 3)">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx,.txt,.zip"
+                    onChange={handleFileChange}
+                  />
+                  <Paperclip size={14} />
+                  Attach
+                </AttachBtn>
+
                 <PostButton
                   type="submit"
-                  disabled={submitting || !comment.trim()}
+                  disabled={
+                    submitting || (!comment.trim() && files.length === 0)
+                  }
                 >
                   <Send size={13} />
                   {submitting ? 'Posting…' : 'Post comment'}
@@ -898,7 +1251,7 @@ const IssueDetail = () => {
           </ComposerRow>
         </div>
 
-        {/* ── Right: sidebar ── */}
+        {/* ── Sidebar ── */}
         <SidePanel>
           <PanelSection>
             <PanelTitle>Details</PanelTitle>
@@ -950,19 +1303,18 @@ const IssueDetail = () => {
                   style={{ color: slaBreached ? '#ef4444' : undefined }}
                 />
                 <span className="label">SLA deadline</span>
-                <SLADeadlineValue $breached={slaBreached}>
+                <SLAValue $breached={slaBreached}>
                   {new Date(issue.slaDeadline).toLocaleString(undefined, {
                     month: 'short',
                     day: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
-                </SLADeadlineValue>
+                </SLAValue>
               </InfoRow>
             )}
           </PanelSection>
 
-          {/* Attachments */}
           {issue.attachments?.length > 0 && (
             <PanelSection>
               <PanelTitle>
@@ -972,7 +1324,7 @@ const IssueDetail = () => {
                 />
                 Attachments ({issue.attachments.length})
               </PanelTitle>
-              <Attachments>
+              <AttachGrid>
                 {issue.attachments.map((att) => (
                   <Thumb
                     key={att._id || att.filename}
@@ -983,7 +1335,7 @@ const IssueDetail = () => {
                     <img src={`${API_BASE}${att.url}`} alt={att.originalName} />
                   </Thumb>
                 ))}
-              </Attachments>
+              </AttachGrid>
             </PanelSection>
           )}
         </SidePanel>

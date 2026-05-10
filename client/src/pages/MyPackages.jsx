@@ -342,7 +342,7 @@ const MyPackages = () => {
   if (loading) {
     return (
       <Wrapper>
-        <FullScreenLoader />
+        <FullScreenLoader label="Loading your packages..." />
       </Wrapper>
     )
   }

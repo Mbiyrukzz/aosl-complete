@@ -6,6 +6,7 @@ import { ArrowLeft, MapPin, Briefcase, Send } from 'lucide-react'
 import Modal from '../components/Modal'
 import { ROUTES } from '../constants/routes'
 import ApplicationForm from '../components/ApplicationForm'
+import { FullScreenLoader } from '../components/Loader'
 // import the ApplicationForm — easiest is to extract it to its own file,
 // or just re-implement here. For brevity I'll reuse the in-page version.
 
@@ -125,11 +126,7 @@ const JobDetail = () => {
   }, [id])
 
   if (loading) {
-    return (
-      <Wrapper>
-        <p>Loading...</p>
-      </Wrapper>
-    )
+    return <FullScreenLoader label="Loading job details..." fullScreen />
   }
 
   if (notFound || !job) return <Navigate to={ROUTES.CAREERS} replace />

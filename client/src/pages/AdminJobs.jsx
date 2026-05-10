@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
 import Modal from '../components/Modal'
+import { FullScreenLoader } from '../components/Loader'
 
 const Wrapper = styled.div`
   max-width: 1100px;
@@ -460,7 +461,7 @@ const AdminJobs = () => {
       </Stats>
 
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Loading...</p>
+        <FullScreenLoader label="Loading Advertised Jobs..." />
       ) : jobs.length === 0 ? (
         <Empty>
           <p style={{ marginBottom: '1.25rem' }}>

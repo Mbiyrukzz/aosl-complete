@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
+import { FullScreenLoader } from '../components/Loader'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
 
@@ -752,7 +753,7 @@ const AdminApplications = () => {
         <ListPane $hideOnMobile={!!selected}>
           {loading ? (
             <Empty>
-              <p>Loading...</p>
+              <FullScreenLoader label="Loading applications..." />
             </Empty>
           ) : applications.length === 0 ? (
             <Empty>

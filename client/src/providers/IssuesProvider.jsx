@@ -6,7 +6,7 @@ import { useUser } from '../hooks/useUser'
 
 export const IssuesProvider = ({ children }) => {
   const { user, profile } = useUser()
-  const { isReady, get, post, patch } = useAuthedRequest()
+  const { isReady, get, post, patch, del } = useAuthedRequest()
   const socket = useSocket()
 
   const [issues, setIssues] = useState([])
@@ -16,8 +16,6 @@ export const IssuesProvider = ({ children }) => {
 
   const isStaffUser = profile?.role === 'staff' || profile?.role === 'admin'
 
-  // Staff/admin hit the aggregation endpoint (tier-sorted, company populated).
-  // Clients hit the regular endpoint (their own issues only).
   const fetchIssues = useCallback(async () => {
     if (!isReady) return
     setLoading(true)
@@ -33,7 +31,6 @@ export const IssuesProvider = ({ children }) => {
     }
   }, [isReady, isStaffUser, get])
 
-  // Fetch staff list — only for staff/admin users
   const fetchStaff = useCallback(async () => {
     if (!isReady || !isStaffUser) return
     try {
@@ -78,33 +75,56 @@ export const IssuesProvider = ({ children }) => {
     [patch],
   )
 
+  /**
+   * Post a comment with optional file attachments.
+   * Sends as multipart/form-data so multer handles the files server-side.
+   */
   const addComment = useCallback(
-    async (id, text) => {
-      const data = await post(`/api/issues/${id}/comments`, { text })
+    async (id, text, files = []) => {
+      const formData = new FormData()
+      formData.append('text', text)
+      files.forEach((f) => formData.append('attachments', f))
+      // Pass FormData directly — useAuthedRequest must not set Content-Type
+      // so the browser sets the multipart boundary automatically.
+      const data = await post(`/api/issues/${id}/comments`, formData)
       return data.issue
     },
     [post],
   )
 
+  const editComment = useCallback(
+    async (issueId, commentId, text) => {
+      const data = await patch(`/api/issues/${issueId}/comments/${commentId}`, {
+        text,
+      })
+      return data.issue
+    },
+    [patch],
+  )
+
+  const deleteComment = useCallback(
+    async (issueId, commentId) => {
+      const data = await del(`/api/issues/${issueId}/comments/${commentId}`)
+      return data.issue
+    },
+    [del],
+  )
+
   // Socket subscriptions
   useEffect(() => {
     if (!socket) return
-
     const onCreated = (issue) => {
       setIssues((prev) => {
         if (prev.some((i) => i._id === issue._id)) return prev
         return [issue, ...prev]
       })
     }
-
     const onUpdated = (issue) => {
       setIssues((prev) => prev.map((i) => (i._id === issue._id ? issue : i)))
     }
-
     socket.on('issue:created', onCreated)
     socket.on('issue:updated', onUpdated)
     socket.on('issue:commented', onUpdated)
-
     return () => {
       socket.off('issue:created', onCreated)
       socket.off('issue:updated', onUpdated)
@@ -122,6 +142,8 @@ export const IssuesProvider = ({ children }) => {
     updateStatus,
     assignIssue,
     addComment,
+    editComment,
+    deleteComment,
   }
 
   return (

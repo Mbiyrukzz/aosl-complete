@@ -8,6 +8,7 @@ import {
   MessageSquare,
 } from 'lucide-react'
 import { useReminders } from '../hooks/useReminders'
+import { FullScreenLoader } from '../components/Loader'
 
 const Wrapper = styled.div`
   max-width: 800px;
@@ -197,7 +198,7 @@ const MyReminders = () => {
   if (loading) {
     return (
       <Wrapper>
-        <p style={{ color: 'var(--muted)' }}>Loading reminders...</p>
+        <FullScreenLoader label="Loading your reminders..." />
       </Wrapper>
     )
   }
