@@ -6,6 +6,7 @@ import {
   getIssue,
   createIssue,
   updateIssueStatus,
+  deleteIssue,
   assignIssue,
   addComment,
   editComment,
@@ -47,6 +48,13 @@ export const updateIssueStatusRoute = {
   method: 'patch',
   middleware: [verifyFirebaseToken, isStaff],
   handler: updateIssueStatus,
+}
+
+export const deleteIssueRoute = {
+  path: '/issues/:id',
+  method: 'delete',
+  middleware: [verifyFirebaseToken, isStaff],
+  handler: deleteIssue,
 }
 
 export const assignIssueRoute = {

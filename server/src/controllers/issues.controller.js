@@ -238,6 +238,36 @@ export const updateIssueStatus = async (req, res) => {
   }
 }
 
+/* ─── delete issue ────────────────────────────────────────── */
+
+export const deleteIssue = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { role, uid } = req.user
+
+    const issue = await Issue.findById(id).lean()
+    if (!issue) return res.status(404).json({ error: 'Issue not found' })
+
+    // Only the creator or staff/admin may delete
+    if (!isStaffRole(role) && issue.createdBy !== uid) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    await Issue.findByIdAndDelete(id)
+
+    if (req.io) {
+      // Notify everyone watching this issue that it's gone
+      req.io.to(`user:${issue.createdBy}`).emit('issue:deleted', { _id: id })
+      req.io.to('staff').emit('issue:deleted', { _id: id })
+    }
+
+    res.json({ success: true, deletedId: id })
+  } catch (err) {
+    console.error('deleteIssue error:', err)
+    res.status(500).json({ error: 'Failed to delete issue' })
+  }
+}
+
 /* ─── assign ──────────────────────────────────────────────── */
 
 export const assignIssue = async (req, res) => {

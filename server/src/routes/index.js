@@ -21,6 +21,7 @@ import {
   shareIssueRoute,
   editCommentRoute,
   deleteCommentRoute,
+  deleteIssueRoute,
 } from './issuesRoutes.js'
 import {
   listNotificationsRoute,
@@ -105,6 +106,7 @@ const routes = [
   getIssueRoute,
   createIssueRoute,
   updateIssueStatusRoute,
+  deleteIssueRoute,
   assignIssueRoute,
   addCommentRoute,
   editCommentRoute,

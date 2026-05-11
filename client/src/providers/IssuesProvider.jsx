@@ -59,6 +59,18 @@ export const IssuesProvider = ({ children }) => {
     [post],
   )
 
+  /* ─── deleteIssue ─────────────────────────────────────────── */
+
+  const deleteIssue = useCallback(
+    async (id) => {
+      const data = await del(`/api/issues/${id}`)
+      // Optimistically remove from local state immediately
+      setIssues((prev) => prev.filter((i) => i._id !== id))
+      return data
+    },
+    [del],
+  )
+
   const updateStatus = useCallback(
     async (id, status) => {
       const data = await patch(`/api/issues/${id}/status`, { status })
@@ -75,17 +87,14 @@ export const IssuesProvider = ({ children }) => {
     [patch],
   )
 
-  /**
-   * Post a comment with optional file attachments.
-   * Sends as multipart/form-data so multer handles the files server-side.
-   */
   const addComment = useCallback(
     async (id, text, files = []) => {
       const formData = new FormData()
-      formData.append('text', text)
+      formData.append('text', text ?? '')
       files.forEach((f) => formData.append('attachments', f))
-      // Pass FormData directly — useAuthedRequest must not set Content-Type
-      // so the browser sets the multipart boundary automatically.
+
+      // Pass FormData directly — must NOT set Content-Type header so the
+      // browser sets the correct multipart/form-data boundary automatically.
       const data = await post(`/api/issues/${id}/comments`, formData)
       return data.issue
     },
@@ -110,25 +119,37 @@ export const IssuesProvider = ({ children }) => {
     [del],
   )
 
-  // Socket subscriptions
+  /* ─── Socket subscriptions ────────────────────────────────── */
+
   useEffect(() => {
     if (!socket) return
+
     const onCreated = (issue) => {
       setIssues((prev) => {
         if (prev.some((i) => i._id === issue._id)) return prev
         return [issue, ...prev]
       })
     }
+
     const onUpdated = (issue) => {
       setIssues((prev) => prev.map((i) => (i._id === issue._id ? issue : i)))
     }
+
+    // Remove the deleted issue from state when the server broadcasts deletion
+    const onDeleted = ({ _id }) => {
+      setIssues((prev) => prev.filter((i) => i._id !== _id))
+    }
+
     socket.on('issue:created', onCreated)
     socket.on('issue:updated', onUpdated)
     socket.on('issue:commented', onUpdated)
+    socket.on('issue:deleted', onDeleted)
+
     return () => {
       socket.off('issue:created', onCreated)
       socket.off('issue:updated', onUpdated)
       socket.off('issue:commented', onUpdated)
+      socket.off('issue:deleted', onDeleted)
     }
   }, [socket])
 
@@ -139,6 +160,7 @@ export const IssuesProvider = ({ children }) => {
     error,
     refetch: fetchIssues,
     createIssue,
+    deleteIssue,
     updateStatus,
     assignIssue,
     addComment,

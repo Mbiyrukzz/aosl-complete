@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useParams, Link, Navigate } from 'react-router-dom'
+import { useParams, Link, Navigate, useNavigate } from 'react-router-dom'
 import styled, { css } from 'styled-components'
 import {
   ArrowLeft,
@@ -96,6 +96,32 @@ const ShareButton = styled.button`
   }
 `
 
+const DeleteIssueButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: ${({ theme }) => theme.radii.md};
+  font-weight: 500;
+  font-size: 0.83rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+  &:hover {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: #ef4444;
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`
+
 /* ─────────────────────────────────────────────
    Company / tier banner
 ───────────────────────────────────────────── */
@@ -146,6 +172,86 @@ const EscalatedBanner = styled.div`
   color: #ef4444;
   svg {
     flex-shrink: 0;
+  }
+`
+
+/* ─────────────────────────────────────────────
+   Confirm delete modal
+───────────────────────────────────────────── */
+
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(3px);
+`
+
+const ModalCard = styled.div`
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.lg};
+  padding: 1.75rem;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+
+  h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.05rem;
+    color: ${({ theme }) => theme.colors.text};
+  }
+
+  p {
+    margin: 0 0 1.4rem;
+    font-size: 0.88rem;
+    color: ${({ theme }) => theme.colors.muted};
+    line-height: 1.55;
+  }
+`
+
+const ModalActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+`
+
+const CancelBtn = styled.button`
+  padding: 0.5rem 1.1rem;
+  background: transparent;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  font-weight: 500;
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.text};
+    color: ${({ theme }) => theme.colors.text};
+  }
+`
+
+const ConfirmDeleteBtn = styled.button`
+  padding: 0.5rem 1.1rem;
+  background: #ef4444;
+  border: none;
+  border-radius: ${({ theme }) => theme.radii.md};
+  color: white;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity 0.15s ease;
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  &:not(:disabled):hover {
+    opacity: 0.88;
   }
 `
 
@@ -428,7 +534,6 @@ const DeletedPlaceholder = styled.div`
   font-size: 0.85rem;
 `
 
-/* Inline edit textarea inside entry card */
 const EditArea = styled.textarea`
   width: 100%;
   padding: 0.9rem 1.1rem;
@@ -566,7 +671,7 @@ const ComposerAvatar = styled.div`
   }
 `
 
-const ComposerCard = styled.form`
+const ComposerCard = styled.div`
   flex: 1;
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -593,7 +698,6 @@ const Textarea = styled.textarea`
   }
 `
 
-/* File preview strip above composer footer */
 const FileStrip = styled.div`
   display: flex;
   align-items: center;
@@ -690,7 +794,7 @@ const PostButton = styled.button`
 `
 
 /* ─────────────────────────────────────────────
-   Sidebar
+   Sidebar panel
 ───────────────────────────────────────────── */
 
 const SidePanel = styled.aside`
@@ -771,8 +875,6 @@ const SLAValue = styled.span`
   text-align: right;
   color: ${({ $breached }) => ($breached ? '#ef4444' : 'inherit')};
 `
-
-/* ─── Issue attachments (sidebar) ─────────── */
 
 const AttachGrid = styled.div`
   display: grid;
@@ -860,7 +962,6 @@ const AvatarImg = ({ email, avatarUrl, role, size = 36 }) => (
   </Avatar>
 )
 
-/* Renders attachments below a comment body */
 const CommentAttachList = ({ attachments }) => {
   if (!attachments?.length) return null
   return (
@@ -897,16 +998,28 @@ const CommentAttachList = ({ attachments }) => {
 
 const IssueDetail = () => {
   const { id } = useParams()
-  const { staff, issues, loading, addComment, editComment, deleteComment } =
-    useIssues()
+  const navigate = useNavigate()
+  const {
+    staff,
+    issues,
+    loading,
+    addComment,
+    editComment,
+    deleteComment,
+    deleteIssue,
+  } = useIssues()
   const { user, profile } = useUser()
 
   const [comment, setComment] = useState('')
-  const [files, setFiles] = useState([]) // File[] for new comment
+  const [files, setFiles] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
 
-  // Edit state — tracks which comment is being edited
+  // Delete issue modal state
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  // Edit state
   const [editingId, setEditingId] = useState(null)
   const [editText, setEditText] = useState('')
   const [editSaving, setEditSaving] = useState(false)
@@ -932,15 +1045,20 @@ const IssueDetail = () => {
     issue.status !== 'resolved' &&
     issue.status !== 'closed'
 
+  // Can delete if staff/admin OR the original creator
+  const canDeleteIssue =
+    isStaffRole(profile?.role) || issue.createdBy === user?.uid
+
   /* ── comment submit ── */
-  const handleAddComment = async (e) => {
-    e.preventDefault()
+  const handleAddComment = async () => {
     if (!comment.trim() && files.length === 0) return
     setSubmitting(true)
     try {
       await addComment(id, comment.trim(), files)
       setComment('')
       setFiles([])
+      // Reset the hidden file input so the same file can be reselected
+      if (fileInputRef.current) fileInputRef.current.value = ''
     } catch (err) {
       alert('Failed to post comment: ' + err.message)
     } finally {
@@ -951,7 +1069,7 @@ const IssueDetail = () => {
   const handleFileChange = (e) => {
     const picked = Array.from(e.target.files || [])
     setFiles((prev) => [...prev, ...picked].slice(0, 3))
-    e.target.value = ''
+    // Don't reset value here — we do it after successful submit above
   }
 
   const removeFile = (idx) =>
@@ -980,8 +1098,8 @@ const IssueDetail = () => {
     }
   }
 
-  /* ── delete ── */
-  const handleDelete = async (commentId) => {
+  /* ── delete comment ── */
+  const handleDeleteComment = async (commentId) => {
     if (!confirm('Delete this comment? This cannot be undone.')) return
     try {
       await deleteComment(id, commentId)
@@ -990,7 +1108,19 @@ const IssueDetail = () => {
     }
   }
 
-  /* ── can edit/delete check ── */
+  /* ── delete issue ── */
+  const handleDeleteIssue = async () => {
+    setDeleting(true)
+    try {
+      await deleteIssue(id)
+      navigate(ROUTES.SUPPORT, { replace: true })
+    } catch (err) {
+      alert('Failed to delete issue: ' + err.message)
+      setDeleting(false)
+      setDeleteOpen(false)
+    }
+  }
+
   const canModify = (c) =>
     c.authorUid === user?.uid || isStaffRole(profile?.role)
 
@@ -1002,12 +1132,44 @@ const IssueDetail = () => {
           <ArrowLeft size={15} /> All issues
         </BackLink>
         <TopBarRight>
+          {canDeleteIssue && (
+            <DeleteIssueButton
+              onClick={() => setDeleteOpen(true)}
+              title="Delete this issue"
+            >
+              <Trash2 size={13} /> Delete
+            </DeleteIssueButton>
+          )}
           <ShareButton onClick={() => setShareOpen(true)}>
             <Share2 size={13} /> Share
           </ShareButton>
           <IssueId>#{issue._id.slice(-6)}</IssueId>
         </TopBarRight>
       </TopBar>
+
+      {/* ── Delete issue confirmation modal ── */}
+      {deleteOpen && (
+        <ModalOverlay onClick={() => !deleting && setDeleteOpen(false)}>
+          <ModalCard onClick={(e) => e.stopPropagation()}>
+            <h3>Delete this issue?</h3>
+            <p>
+              <strong>"{issue.title}"</strong> and all its comments will be
+              permanently removed. This action cannot be undone.
+            </p>
+            <ModalActions>
+              <CancelBtn
+                onClick={() => setDeleteOpen(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </CancelBtn>
+              <ConfirmDeleteBtn onClick={handleDeleteIssue} disabled={deleting}>
+                {deleting ? 'Deleting…' : 'Yes, delete issue'}
+              </ConfirmDeleteBtn>
+            </ModalActions>
+          </ModalCard>
+        </ModalOverlay>
+      )}
 
       {/* ── Header ── */}
       <Header>
@@ -1125,7 +1287,6 @@ const IssueDetail = () => {
                       )}
                       <span className="time">{formatTime(c.createdAt)}</span>
 
-                      {/* Edit / delete — only shown for author or staff */}
                       {!c.deleted && canModify(c) && (
                         <EntryActions>
                           <ActionBtn
@@ -1139,7 +1300,7 @@ const IssueDetail = () => {
                           <ActionBtn
                             title="Delete"
                             $danger
-                            onClick={() => handleDelete(c._id)}
+                            onClick={() => handleDeleteComment(c._id)}
                           >
                             <Trash2 size={13} />
                           </ActionBtn>
@@ -1184,7 +1345,7 @@ const IssueDetail = () => {
             })}
           </Thread>
 
-          {/* Composer */}
+          {/* ── Composer (NOT a <form> — avoids accidental submit) ── */}
           <ComposerRow>
             <ComposerAvatar $role={currentUserRole}>
               {profile?.avatarUrl ? (
@@ -1201,11 +1362,18 @@ const IssueDetail = () => {
               )}
             </ComposerAvatar>
 
-            <ComposerCard onSubmit={handleAddComment}>
+            <ComposerCard>
               <Textarea
                 placeholder="Leave a comment..."
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
+                onKeyDown={(e) => {
+                  // Ctrl/Cmd + Enter submits
+                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddComment()
+                  }
+                }}
               />
 
               {/* Staged files preview */}
@@ -1224,9 +1392,14 @@ const IssueDetail = () => {
               )}
 
               <ComposerFooter>
-                {/* File attach button */}
                 <AttachBtn title="Attach files (max 3)">
+                  {/*
+                    FIX: key prop forces the input to re-mount after submit,
+                    clearing its internal value so the same file can be
+                    re-attached on a subsequent comment.
+                  */}
                   <input
+                    key={files.length === 0 ? 'empty' : 'has-files'}
                     ref={fileInputRef}
                     type="file"
                     multiple
@@ -1238,7 +1411,8 @@ const IssueDetail = () => {
                 </AttachBtn>
 
                 <PostButton
-                  type="submit"
+                  type="button"
+                  onClick={handleAddComment}
                   disabled={
                     submitting || (!comment.trim() && files.length === 0)
                   }
