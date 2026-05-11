@@ -118,14 +118,19 @@ export const getCompany = async (req, res) => {
     const company = await Company.findById(req.params.id)
       .populate('accountManagerId', 'displayName email')
       .lean()
-    if (!company) return res.status(404).json({ error: 'Company not found' })
+
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' })
+    }
 
     const [users, packages, openIssues] = await Promise.all([
       User.find({ companyId: company._id })
         .select('uid displayName email role jobTitle phone avatarUrl')
         .sort({ displayName: 1 })
         .lean(),
+
       Package.find({ companyId: company._id }).sort({ expiryDate: 1 }).lean(),
+
       Issue.find({
         companyId: company._id,
         status: { $in: ['open', 'in_progress'] },
@@ -135,7 +140,19 @@ export const getCompany = async (req, res) => {
         .lean(),
     ])
 
-    res.json({ company, users, packages, openIssues })
+    res.json({
+      company: {
+        ...company,
+        users,
+        packages,
+        issues: openIssues,
+        counts: {
+          users: users.length,
+          packages: packages.length,
+          openIssues: openIssues.length,
+        },
+      },
+    })
   } catch (err) {
     console.error('getCompany error:', err)
     res.status(500).json({ error: 'Failed to fetch company' })
