@@ -845,7 +845,7 @@ const Home = () => {
             <div className="lbl">Active clients</div>
           </StripStat>
           <StripStat>
-            <div className="num">4yrs</div>
+            <div className="num">11yrs</div>
             <div className="lbl">Building software</div>
           </StripStat>
           <StripStat>

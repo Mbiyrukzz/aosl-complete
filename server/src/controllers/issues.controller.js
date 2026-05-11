@@ -1,5 +1,6 @@
 import { Issue } from '../models/Issue.js'
 import { User } from '../models/User.js'
+import { dispatch } from '../services/notification-dispatcher.service.js'
 import {
   createNotification,
   createNotificationsBulk,
@@ -164,6 +165,34 @@ export const createIssue = async (req, res) => {
     })
 
     const payload = issue.toJSON()
+
+    // ── Notify the reporter (email + WhatsApp) ──────────────────
+    try {
+      if (reporter) {
+        await dispatch({
+          userId: reporter._id,
+          title: `We've received your request: "${title}"`,
+          message: `Your ticket has been created (priority: ${priority}). We'll respond shortly.`,
+          category: 'issue_created',
+          channels: { email: true, whatsapp: true, inApp: false },
+          actionUrl: `/support/${issue._id}`,
+          actionLabel: 'View ticket',
+          extraVars: {
+            issueTitle: title,
+            issueId: issue._id,
+            priority,
+            name:
+              reporter.displayName || reporter.email?.split('@')[0] || 'there',
+          },
+        })
+      }
+    } catch (notifyErr) {
+      // Non-fatal — log but don't fail the request
+      console.error(
+        'Client issue-created notification failed:',
+        notifyErr.message,
+      )
+    }
 
     if (req.io) {
       req.io.to(`user:${req.user.uid}`).emit('issue:created', payload)
@@ -350,6 +379,34 @@ export const addComment = async (req, res) => {
 
     await issue.save()
     const payload = issue.toJSON()
+
+    // ── Notify the issue creator by email + WhatsApp if commenter is different ──
+    if (issue.createdBy !== req.user.uid) {
+      try {
+        const creator = await User.findOne({ uid: issue.createdBy }).lean()
+        if (creator) {
+          await dispatch({
+            userId: creator._id,
+            title: `New reply on your ticket: "${issue.title}"`,
+            message: `${req.user.email} replied to your support request.`,
+            category: 'issue_commented',
+            channels: { email: true, whatsapp: true, inApp: false },
+            actionUrl: `/support/${issue._id}`,
+            actionLabel: 'View reply',
+            extraVars: {
+              issueTitle: issue.title,
+              issueId: issue._id,
+              actorEmail: req.user.email,
+              commentText: text?.trim() || '',
+              name:
+                creator.displayName || creator.email?.split('@')[0] || 'there',
+            },
+          })
+        }
+      } catch (notifyErr) {
+        console.error('Client comment notification failed:', notifyErr.message)
+      }
+    }
 
     if (req.io) {
       req.io.to(`user:${issue.createdBy}`).emit('issue:commented', payload)

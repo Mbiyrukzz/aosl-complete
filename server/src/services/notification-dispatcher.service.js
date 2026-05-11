@@ -6,6 +6,8 @@ import {
   invoiceReminderEmail,
   packageExpiryEmail,
   domainRenewalEmail,
+  issueCommentedEmail,
+  issueCreatedEmail,
 } from './reminder-templates.js'
 
 const TEMPLATE_BY_CATEGORY = {
@@ -14,6 +16,8 @@ const TEMPLATE_BY_CATEGORY = {
   domain_renewal: domainRenewalEmail,
   general: reminderEmail,
   reminder: reminderEmail,
+  issue_created: issueCreatedEmail,
+  issue_commented: issueCommentedEmail,
 }
 
 // Map reminder categories → notification types
@@ -23,6 +27,8 @@ const TYPE_BY_CATEGORY = {
   domain_renewal: 'domain_renewal',
   support: 'general',
   general: 'reminder',
+  issue_created: 'issue_created',
+  issue_commented: 'issue_commented',
 }
 
 /**
@@ -48,6 +54,7 @@ export const dispatch = async ({
   reminderId = null,
   actionUrl = '',
   actionLabel = '',
+  extraVars = {},
 }) => {
   const user = await User.findById(userId).lean()
   if (!user) throw new Error(`User ${userId} not found`)
@@ -85,6 +92,8 @@ export const dispatch = async ({
         message,
         actionUrl,
         actionLabel,
+
+        ...extraVars,
       })
       await sendEmail({
         to: user.email,

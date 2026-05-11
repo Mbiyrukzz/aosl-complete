@@ -92,3 +92,53 @@ export const domainRenewalEmail = ({
   `
   return wrap(inner, '#ef4444')
 }
+
+export const issueCreatedEmail = ({ name, issueTitle, issueId, priority }) => `
+<!DOCTYPE html><html><body style="font-family:sans-serif;color:#1f2937;max-width:600px;margin:0 auto;padding:2rem">
+  <h2 style="color:#111827;margin-bottom:0.5rem">We've received your support request</h2>
+  <p style="color:#6b7280;margin-top:0.25rem;font-size:0.9rem">Ticket #${String(issueId).slice(-6).toUpperCase()}</p>
+
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:1.25rem;margin:1.5rem 0">
+    <p style="margin:0 0 0.5rem;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af">Subject</p>
+    <p style="margin:0;font-weight:600;font-size:1rem">${issueTitle}</p>
+    <p style="margin:0.75rem 0 0;font-size:0.8rem;color:#6b7280">Priority: <strong>${priority}</strong></p>
+  </div>
+
+  <p>Hi ${name},</p>
+  <p>Thanks for reaching out. Our team has received your request and will get back to you as soon as possible.</p>
+  <p style="color:#6b7280;font-size:0.88rem">You'll get a notification here and by email whenever we respond.</p>
+
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:2rem 0"/>
+  <p style="color:#9ca3af;font-size:0.78rem;margin:0">This is an automated message — please do not reply directly to this email.</p>
+</body></html>
+`
+
+export const issueCommentedEmail = ({
+  name,
+  issueTitle,
+  issueId,
+  actorEmail,
+  commentText,
+}) => `
+<!DOCTYPE html><html><body style="font-family:sans-serif;color:#1f2937;max-width:600px;margin:0 auto;padding:2rem">
+  <h2 style="color:#111827;margin-bottom:0.5rem">New reply on your support request</h2>
+  <p style="color:#6b7280;margin-top:0.25rem;font-size:0.9rem">Ticket #${String(issueId).slice(-6).toUpperCase()}</p>
+
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:1.25rem;margin:1.5rem 0">
+    <p style="margin:0 0 0.5rem;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af">Issue</p>
+    <p style="margin:0;font-weight:600">${issueTitle}</p>
+  </div>
+
+  <p>Hi ${name},</p>
+  <p><strong>${actorEmail}</strong> has replied to your support request:</p>
+
+  <blockquote style="border-left:3px solid #6366f1;margin:1rem 0;padding:0.75rem 1rem;background:#f5f3ff;border-radius:0 6px 6px 0;color:#374151;font-style:italic">
+    ${commentText ? commentText.slice(0, 300) + (commentText.length > 300 ? '…' : '') : '(attachment only)'}
+  </blockquote>
+
+  <p style="color:#6b7280;font-size:0.88rem">Log in to view the full conversation and reply.</p>
+
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:2rem 0"/>
+  <p style="color:#9ca3af;font-size:0.78rem;margin:0">This is an automated message — please do not reply directly to this email.</p>
+</body></html>
+`

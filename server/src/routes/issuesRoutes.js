@@ -53,7 +53,7 @@ export const updateIssueStatusRoute = {
 export const deleteIssueRoute = {
   path: '/issues/:id',
   method: 'delete',
-  middleware: [verifyFirebaseToken, isStaff],
+  middleware: [verifyFirebaseToken],
   handler: deleteIssue,
 }
 
