@@ -147,21 +147,20 @@ const routes = [
   deletePackageRoute,
   myPackagesRoute,
 
+  accountsStatsRoute,
   listQuotationsRoute,
   getQuotationRoute,
   createQuotationRoute,
   updateQuotationRoute,
   deleteQuotationRoute,
   sendQuotationRoute,
-
   convertQuotationRoute,
   listInvoicesRoute,
-  getInvoiceRoute,
   createInvoiceRoute,
-  updateInvoiceRoute,
   uploadInvoicePDFRoute,
+  getInvoiceRoute,
+  updateInvoiceRoute,
   sendInvoiceRoute,
-  accountsStatsRoute,
 ]
 
 export default routes

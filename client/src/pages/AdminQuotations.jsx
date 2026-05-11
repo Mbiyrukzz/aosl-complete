@@ -9,6 +9,7 @@ import {
   Trash2,
   ArrowRight,
   RefreshCw,
+  Eye,
 } from 'lucide-react'
 import { useAccounts } from '../hooks/useAccounts'
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
@@ -40,6 +41,11 @@ import {
 import { SendModal } from '../components/SendModal'
 import { ConvertModal } from '../components/ConvertModal'
 import { QuotationFormModal } from '../components/QuotationFormModal'
+import { QuotationViewModal } from '../components/QuotationViewModal' // ✅ new
+
+/* ── PDF import — used only when sending with attachment ──── */
+import { pdf } from '@react-pdf/renderer'
+import { blobToBase64, QuotationPDFDocument } from '../pdf/QuotationPDF'
 
 const ActionGroup = styled.div`
   display: flex;
@@ -99,11 +105,11 @@ const AdminQuotations = () => {
 
   const [showCreate, setShowCreate] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
+  const [viewTarget, setViewTarget] = useState(null) // ✅ new
   const [sendTarget, setSendTarget] = useState(null)
   const [convertTarget, setConvertTarget] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // Fetch companies for dropdowns
   useEffect(() => {
     if (!isReady) return
     get('/api/admin/companies')
@@ -111,7 +117,6 @@ const AdminQuotations = () => {
       .catch(() => {})
   }, [isReady])
 
-  // Refetch on filter change
   useEffect(() => {
     fetchQuotations({ status: statusFilter })
   }, [statusFilter]) // eslint-disable-line
@@ -175,10 +180,21 @@ const AdminQuotations = () => {
     }
   }
 
+  /**
+   * ✅ Generate PDF on the client, then send both the email body
+   *    and the base64-encoded PDF attachment to the server.
+   */
   const handleSend = async (email) => {
     setSubmitting(true)
     try {
-      await sendQuotation(sendTarget._id, email, null)
+      let pdfBase64 = null
+      if (sendTarget) {
+        const blob = await pdf(
+          <QuotationPDFDocument doc={sendTarget} type="quotation" />,
+        ).toBlob()
+        pdfBase64 = await blobToBase64(blob)
+      }
+      await sendQuotation(sendTarget._id, email, pdfBase64) // ✅ passes PDF
       setSendTarget(null)
     } catch (err) {
       alert(err.response?.data?.error || err.message)
@@ -192,6 +208,23 @@ const AdminQuotations = () => {
     try {
       await convertQuotation(convertTarget._id, dueDate)
       setConvertTarget(null)
+    } catch (err) {
+      alert(err.response?.data?.error || err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  /**
+   * ✅ Called from inside QuotationViewModal when user clicks "Send with PDF".
+   *    The modal generates the PDF blob → base64 itself and passes it here.
+   */
+  const handleViewSend = async (email, pdfBase64) => {
+    if (!viewTarget) return
+    setSubmitting(true)
+    try {
+      await sendQuotation(viewTarget._id, email, pdfBase64)
+      setViewTarget(null)
     } catch (err) {
       alert(err.response?.data?.error || err.message)
     } finally {
@@ -307,6 +340,11 @@ const AdminQuotations = () => {
                     <Td $muted>{fmtDate(q.validUntil)}</Td>
                     <Td $right>
                       <ActionGroup>
+                        {/* ✅ View button — always shown */}
+                        <SmallBtn onClick={() => setViewTarget(q)}>
+                          <Eye size={12} /> View
+                        </SmallBtn>
+
                         {q.status !== 'converted' && (
                           <>
                             <SmallBtn onClick={() => setSendTarget(q)}>
@@ -329,6 +367,7 @@ const AdminQuotations = () => {
                             </SmallBtn>
                           </>
                         )}
+
                         {q.status === 'converted' && (
                           <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>
                             Converted
@@ -343,6 +382,16 @@ const AdminQuotations = () => {
           </Table>
         )}
       </TableCard>
+
+      {/* ── Modals ── */}
+
+      {/* ✅ View modal with PDF integration */}
+      <QuotationViewModal
+        open={!!viewTarget}
+        onClose={() => setViewTarget(null)}
+        quotation={viewTarget}
+        onSend={handleViewSend}
+      />
 
       <QuotationFormModal
         open={showCreate}

@@ -9,11 +9,13 @@ import {
   Upload,
   RefreshCw,
   CheckCircle,
+  Eye,
 } from 'lucide-react'
 import { useAccounts } from '../hooks/useAccounts'
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
 import { InvoiceFormModal } from '../components/InvoiceFormModal'
 import { SendModal } from '../components/SendModal'
+import { InvoiceViewModal } from '../components/InvoiceViewModal' // ✅ new
 import {
   PageWrapper,
   PageHead,
@@ -48,6 +50,10 @@ import {
   fmt,
 } from '../components/AccountsShared'
 import { X } from 'lucide-react'
+
+/* ── PDF — for generated invoices sent with attachment ────── */
+import { pdf } from '@react-pdf/renderer'
+import { blobToBase64, QuotationPDFDocument } from '../pdf/QuotationPDF'
 
 const SmallBtn = styled.button`
   display: inline-flex;
@@ -109,11 +115,15 @@ const UploadModal = ({
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  /**
+   * ✅ Fix: use a plain submit handler (not an HTML <form> onSubmit)
+   *    and build FormData manually so the file reaches multer correctly.
+   */
+  const handleSubmit = async () => {
     if (!form.file) return alert('Please select a PDF file.')
+
     const fd = new FormData()
-    fd.append('invoice', form.file)
+    fd.append('invoice', form.file) // field name must match upload.single('invoice')
     fd.append('etimsRef', form.etimsRef)
     fd.append('companyId', form.companyId)
     fd.append('clientName', form.clientName)
@@ -121,6 +131,7 @@ const UploadModal = ({
     fd.append('total', form.total)
     fd.append('currency', form.currency)
     if (form.dueDate) fd.append('dueDate', form.dueDate)
+
     onUpload(fd)
   }
 
@@ -128,7 +139,7 @@ const UploadModal = ({
 
   return (
     <Modal>
-      <ModalBox as="form" onSubmit={handleSubmit}>
+      <ModalBox>
         <ModalHead>
           <h2>Upload eTIMS Invoice</h2>
           <CloseBtn type="button" onClick={onClose}>
@@ -144,7 +155,6 @@ const UploadModal = ({
             <Input
               type="file"
               accept="application/pdf"
-              required
               onChange={(e) => set('file', e.target.files[0])}
             />
           </Field>
@@ -198,7 +208,6 @@ const UploadModal = ({
                 type="number"
                 min="0"
                 step="0.01"
-                required
                 value={form.total}
                 onChange={(e) => set('total', e.target.value)}
                 placeholder="0.00"
@@ -230,7 +239,11 @@ const UploadModal = ({
           <SecondaryButton type="button" onClick={onClose}>
             Cancel
           </SecondaryButton>
-          <PrimaryButton type="submit" disabled={submitting}>
+          <PrimaryButton
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting || !form.file || !form.total}
+          >
             <Upload size={14} />
             {submitting ? 'Uploading…' : 'Upload Invoice'}
           </PrimaryButton>
@@ -243,7 +256,7 @@ const UploadModal = ({
 /* ── Main page ────────────────────────────────────────────── */
 
 const AdminInvoices = () => {
-  const { isReady, get, patch } = useAuthedRequest()
+  const { isReady, get } = useAuthedRequest()
   const {
     invoices,
     loading,
@@ -261,6 +274,7 @@ const AdminInvoices = () => {
   const [showCreate, setShowCreate] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
+  const [viewTarget, setViewTarget] = useState(null)
   const [sendTarget, setSendTarget] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -325,10 +339,22 @@ const AdminInvoices = () => {
     }
   }
 
+  /**
+   * ✅ For generated invoices, build the PDF client-side and include
+   *    pdfBase64 so the server can attach it to the email.
+   *    For uploaded eTIMS invoices, pass null — the server attaches the stored file.
+   */
   const handleSend = async (email) => {
     setSubmitting(true)
     try {
-      await sendInvoice(sendTarget._id, email, null)
+      let pdfBase64 = null
+      if (sendTarget && sendTarget.type !== 'uploaded') {
+        const blob = await pdf(
+          <QuotationPDFDocument doc={sendTarget} type="invoice" />,
+        ).toBlob()
+        pdfBase64 = await blobToBase64(blob)
+      }
+      await sendInvoice(sendTarget._id, email, pdfBase64)
       setSendTarget(null)
     } catch (err) {
       alert(err.response?.data?.error || err.message)
@@ -361,6 +387,20 @@ const AdminInvoices = () => {
     }
   }
 
+  /** Called from InvoiceViewModal → Send button */
+  const handleViewSend = async (email, pdfBase64) => {
+    if (!viewTarget) return
+    setSubmitting(true)
+    try {
+      await sendInvoice(viewTarget._id, email, pdfBase64)
+      setViewTarget(null)
+    } catch (err) {
+      alert(err.response?.data?.error || err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const isDueSoon = (inv) => {
     if (!inv.dueDate || inv.status === 'paid') return false
     const days = (new Date(inv.dueDate) - Date.now()) / 86400000
@@ -369,11 +409,7 @@ const AdminInvoices = () => {
 
   const isOverdue = (inv) => {
     if (!inv.dueDate || inv.status === 'paid') return false
-    return (
-      new Date(inv.dueDate) < new Date() &&
-      inv.status !== 'paid' &&
-      inv.status !== 'cancelled'
-    )
+    return new Date(inv.dueDate) < new Date() && inv.status !== 'cancelled'
   }
 
   return (
@@ -517,9 +553,15 @@ const AdminInvoices = () => {
                     </Td>
                     <Td $right>
                       <ActionGroup>
+                        {/* ✅ View — always shown */}
+                        <SmallBtn onClick={() => setViewTarget(inv)}>
+                          <Eye size={12} /> View
+                        </SmallBtn>
+
                         <SmallBtn onClick={() => setSendTarget(inv)}>
                           <Send size={12} /> Send
                         </SmallBtn>
+
                         {inv.status !== 'paid' &&
                           inv.status !== 'cancelled' && (
                             <SmallBtn
@@ -529,6 +571,7 @@ const AdminInvoices = () => {
                               <CheckCircle size={12} /> Paid
                             </SmallBtn>
                           )}
+
                         {inv.type !== 'uploaded' && (
                           <SmallBtn onClick={() => setEditTarget(inv)}>
                             <Pencil size={12} />
@@ -543,6 +586,16 @@ const AdminInvoices = () => {
           </Table>
         )}
       </TableCard>
+
+      {/* ── Modals ── */}
+
+      {/* ✅ View modal */}
+      <InvoiceViewModal
+        open={!!viewTarget}
+        onClose={() => setViewTarget(null)}
+        invoice={viewTarget}
+        onSend={handleViewSend}
+      />
 
       <InvoiceFormModal
         open={showCreate}

@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import useAuthedRequest from '../hooks/useAuthedRequest'
 import { AccountsContext } from '../contexts/AccountsContext'
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+const API_BASE = `${BASE_URL}/api/accounts`
+
 export const AccountsProvider = ({ children, scope = 'stats' }) => {
   const { isReady, get, post, patch, del } = useAuthedRequest()
 
@@ -11,118 +14,65 @@ export const AccountsProvider = ({ children, scope = 'stats' }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  /* ─── Fetch helpers ─────────────────────────────────────── */
-
-  const fetchStats = useCallback(async () => {
-    if (!isReady) return
-
+  /* ── Generic request wrapper with loading/error state ───────── */
+  const withLoading = useCallback(async (fn) => {
     setLoading(true)
     setError(null)
-
     try {
-      const data = await get('/api/accounts/stats')
-      setStats(data.stats)
+      return await fn()
     } catch (err) {
-      setError(err.response?.data?.error || err.message)
+      const msg = err.response?.data?.error || err.message
+      setError(msg)
+      throw err
     } finally {
       setLoading(false)
     }
-  }, [isReady, get])
+  }, [])
+
+  /* ── Stats ──────────────────────────────────────────────────── */
+
+  const fetchStats = useCallback(async () => {
+    if (!isReady) return
+    return withLoading(async () => {
+      const data = await get(`${API_BASE}/stats`)
+      setStats(data.stats)
+      return data.stats
+    })
+  }, [isReady, get, withLoading])
+
+  /* ── Quotations ─────────────────────────────────────────────── */
 
   const fetchQuotations = useCallback(
     async (filters = {}) => {
       if (!isReady) return
-
-      setLoading(true)
-      setError(null)
-
-      try {
+      return withLoading(async () => {
         const params = new URLSearchParams()
-
-        if (filters.status && filters.status !== 'all') {
+        if (filters.status && filters.status !== 'all')
           params.set('status', filters.status)
-        }
-
-        if (filters.companyId) {
-          params.set('companyId', filters.companyId)
-        }
-
-        if (filters.currency) {
-          params.set('currency', filters.currency)
-        }
-
-        const qs = params.toString() ? `?${params.toString()}` : ''
-
-        const data = await get(`/api/accounts/quotations${qs}`)
-
+        if (filters.companyId) params.set('companyId', filters.companyId)
+        if (filters.currency) params.set('currency', filters.currency)
+        const qs = params.size ? `?${params}` : ''
+        const data = await get(`${API_BASE}/quotations${qs}`)
         setQuotations(data.quotations)
-      } catch (err) {
-        setError(err.response?.data?.error || err.message)
-      } finally {
-        setLoading(false)
-      }
+        return data.quotations
+      })
     },
-    [isReady, get],
+    [isReady, get, withLoading],
   )
 
-  const fetchInvoices = useCallback(
-    async (filters = {}) => {
+  const fetchQuotation = useCallback(
+    async (id) => {
       if (!isReady) return
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        const params = new URLSearchParams()
-
-        if (filters.status && filters.status !== 'all') {
-          params.set('status', filters.status)
-        }
-
-        if (filters.companyId) {
-          params.set('companyId', filters.companyId)
-        }
-
-        if (filters.type) {
-          params.set('type', filters.type)
-        }
-
-        const qs = params.toString() ? `?${params.toString()}` : ''
-
-        const data = await get(`/api/accounts/invoices${qs}`)
-
-        setInvoices(data.invoices)
-      } catch (err) {
-        setError(err.response?.data?.error || err.message)
-      } finally {
-        setLoading(false)
-      }
+      const data = await get(`${API_BASE}/quotations/${id}`)
+      return data.quotation
     },
     [isReady, get],
   )
-
-  /* ─── Initial fetch ─────────────────────────────────────── */
-
-  useEffect(() => {
-    if (!isReady) return
-
-    if (scope === 'quotations') {
-      fetchQuotations()
-    } else if (scope === 'invoices') {
-      fetchInvoices()
-    } else {
-      fetchStats()
-    }
-  }, [isReady, scope, fetchStats, fetchQuotations, fetchInvoices])
-
-  /* ─── Quotation actions ─────────────────────────────────── */
 
   const createQuotation = useCallback(
     async (payload) => {
-      const data = await post('/api/accounts/quotations', payload)
-
+      const data = await post(`${API_BASE}/quotations`, payload)
       setQuotations((prev) => [data.quotation, ...prev])
-
       return data.quotation
     },
     [post],
@@ -130,12 +80,10 @@ export const AccountsProvider = ({ children, scope = 'stats' }) => {
 
   const updateQuotation = useCallback(
     async (id, payload) => {
-      const data = await patch(`/api/accounts/quotations/${id}`, payload)
-
+      const data = await patch(`${API_BASE}/quotations/${id}`, payload)
       setQuotations((prev) =>
         prev.map((q) => (q._id === id ? data.quotation : q)),
       )
-
       return data.quotation
     },
     [patch],
@@ -143,20 +91,18 @@ export const AccountsProvider = ({ children, scope = 'stats' }) => {
 
   const deleteQuotation = useCallback(
     async (id) => {
-      await del(`/api/accounts/quotations/${id}`)
-
+      await del(`${API_BASE}/quotations/${id}`)
       setQuotations((prev) => prev.filter((q) => q._id !== id))
     },
     [del],
   )
 
   const sendQuotation = useCallback(
-    async (id, email, pdfBase64) => {
-      const data = await post(`/api/accounts/quotations/${id}/send`, {
+    async (id, email, pdfBase64 = null) => {
+      const data = await post(`${API_BASE}/quotations/${id}/send`, {
         email,
         pdfBase64,
       })
-
       setQuotations((prev) =>
         prev.map((q) =>
           q._id === id
@@ -168,7 +114,6 @@ export const AccountsProvider = ({ children, scope = 'stats' }) => {
             : q,
         ),
       )
-
       return data
     },
     [post],
@@ -176,29 +121,51 @@ export const AccountsProvider = ({ children, scope = 'stats' }) => {
 
   const convertQuotation = useCallback(
     async (id, dueDate) => {
-      const data = await post(`/api/accounts/quotations/${id}/convert`, {
+      const data = await post(`${API_BASE}/quotations/${id}/convert`, {
         dueDate,
       })
-
       setQuotations((prev) =>
         prev.map((q) => (q._id === id ? { ...q, status: 'converted' } : q)),
       )
-
       setInvoices((prev) => [data.invoice, ...prev])
-
       return data.invoice
     },
     [post],
   )
 
-  /* ─── Invoice actions ───────────────────────────────────── */
+  /* ── Invoices ───────────────────────────────────────────────── */
+
+  const fetchInvoices = useCallback(
+    async (filters = {}) => {
+      if (!isReady) return
+      return withLoading(async () => {
+        const params = new URLSearchParams()
+        if (filters.status && filters.status !== 'all')
+          params.set('status', filters.status)
+        if (filters.companyId) params.set('companyId', filters.companyId)
+        if (filters.type) params.set('type', filters.type)
+        const qs = params.size ? `?${params}` : ''
+        const data = await get(`${API_BASE}/invoices${qs}`)
+        setInvoices(data.invoices)
+        return data.invoices
+      })
+    },
+    [isReady, get, withLoading],
+  )
+
+  const fetchInvoice = useCallback(
+    async (id) => {
+      if (!isReady) return
+      const data = await get(`${API_BASE}/invoices/${id}`)
+      return data.invoice
+    },
+    [isReady, get],
+  )
 
   const createInvoice = useCallback(
     async (payload) => {
-      const data = await post('/api/accounts/invoices', payload)
-
+      const data = await post(`${API_BASE}/invoices`, payload)
       setInvoices((prev) => [data.invoice, ...prev])
-
       return data.invoice
     },
     [post],
@@ -206,75 +173,83 @@ export const AccountsProvider = ({ children, scope = 'stats' }) => {
 
   const updateInvoice = useCallback(
     async (id, payload) => {
-      const data = await patch(`/api/accounts/invoices/${id}`, payload)
-
+      const data = await patch(`${API_BASE}/invoices/${id}`, payload)
       setInvoices((prev) =>
         prev.map((inv) => (inv._id === id ? data.invoice : inv)),
       )
-
       return data.invoice
     },
     [patch],
   )
 
   const sendInvoice = useCallback(
-    async (id, email, pdfBase64) => {
-      const data = await post(`/api/accounts/invoices/${id}/send`, {
+    async (id, email, pdfBase64 = null) => {
+      const data = await post(`${API_BASE}/invoices/${id}/send`, {
         email,
         pdfBase64,
       })
-
       setInvoices((prev) =>
         prev.map((inv) =>
-          inv._id === id
-            ? {
-                ...inv,
-                status: 'sent',
-                sentTo: email,
-              }
-            : inv,
+          inv._id === id ? { ...inv, status: 'sent', sentTo: email } : inv,
         ),
       )
-
       return data
     },
     [post],
   )
 
+  /**
+   * Upload an eTIMS PDF invoice.
+   */
   const uploadInvoicePDF = useCallback(
     async (formData) => {
-      const data = await post('/api/accounts/invoices/upload', formData)
-
+      // post() works fine — axios sees FormData and sets Content-Type automatically
+      const data = await post(`${API_BASE}/invoices/upload`, formData)
       setInvoices((prev) => [data.invoice, ...prev])
-
       return data.invoice
     },
     [post],
   )
+  /* ── Initial fetch ──────────────────────────────────────────── */
+
+  useEffect(() => {
+    if (!isReady) return
+    if (scope === 'quotations') fetchQuotations()
+    else if (scope === 'invoices') fetchInvoices()
+    else fetchStats()
+  }, [isReady, scope]) // eslint-disable-line
+
+  /* ── Context value ──────────────────────────────────────────── */
 
   return (
     <AccountsContext.Provider
       value={{
+        // State
         quotations,
         invoices,
         stats,
         loading,
         error,
 
-        fetchStats,
+        // Quotation actions
         fetchQuotations,
-        fetchInvoices,
-
+        fetchQuotation,
         createQuotation,
         updateQuotation,
         deleteQuotation,
         sendQuotation,
         convertQuotation,
 
+        // Invoice actions
+        fetchInvoices,
+        fetchInvoice,
         createInvoice,
         updateInvoice,
         sendInvoice,
         uploadInvoicePDF,
+
+        // Stats
+        fetchStats,
       }}
     >
       {children}
