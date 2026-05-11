@@ -20,13 +20,17 @@ export const ROUTES = {
   ADMIN_PACKAGES: '/admin/packages',
   MY_PACKAGES: '/my-packages',
   MY_REMINDERS: '/my-reminders',
+  COMPANY_DETAILS: '/dashboard/company',
   ADMIN_INVOICES: '/accounts/invoices',
   ADMIN_QUOTATIONS: '/accounts/quotations',
+  ADMIN_COMPANY_DETAIL: '/admin/companies/:id',
   SETTINGS: '/settings',
 }
 
 export const buildIssuePath = (id) => `/support/${id}`
 export const buildJobPath = (id) => `/careers/${id}`
+
+export const buildAdminCompanyPath = (id) => `/admin/companies/${id}`
 
 export const buildAdminIssuesPath = (companyId) =>
   companyId ? `/admin/issues?companyId=${companyId}` : '/admin/issues'

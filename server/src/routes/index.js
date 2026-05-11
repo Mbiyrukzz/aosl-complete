@@ -64,6 +64,7 @@ import {
   getCompanyRoute,
   listCompaniesRoute,
   updateCompanyRoute,
+  getMyCompanyRoute,
 } from './companiesRoutes.js'
 import {
   accountsStatsRoute,
@@ -98,6 +99,7 @@ const routes = [
   createCompanyRoute,
   listCompaniesRoute,
   getCompanyRoute,
+  getMyCompanyRoute,
   updateCompanyRoute,
   deleteCompanyRoute,
 

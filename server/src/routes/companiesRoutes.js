@@ -7,6 +7,7 @@ import {
   getCompany,
   updateCompany,
   deleteCompany,
+  getMyCompany,
 } from '../controllers/companies.controller.js'
 
 export const createCompanyRoute = {
@@ -21,6 +22,13 @@ export const listCompaniesRoute = {
   method: 'get',
   middleware: [verifyFirebaseToken, isStaff], // staff can read
   handler: listCompanies,
+}
+
+export const getMyCompanyRoute = {
+  path: '/companies/mine',
+  method: 'get',
+  middleware: [verifyFirebaseToken], // any authenticated user
+  handler: getMyCompany,
 }
 
 export const getCompanyRoute = {

@@ -29,6 +29,8 @@ import AuthAction from './src/pages/AuthAction'
 import AdminCompanies from './src/pages/AdminCompanies'
 import AdminInvoices from './src/pages/AdminInvoices'
 import AdminQuotations from './src/pages/AdminQuotations'
+import CompanyDetails from './src/pages/CompanyDetails'
+import AdminCompanyDetail from './src/pages/AdminCompanyDetail'
 
 const AppRoutes = () => {
   return (
@@ -50,6 +52,7 @@ const AppRoutes = () => {
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route path={ROUTES.DASHBOARD} element={<Dashboard />} />
+          <Route path={ROUTES.COMPANY_DETAILS} element={<CompanyDetails />} />
           <Route path={ROUTES.MY_PACKAGES} element={<MyPackages />} />
           <Route path={ROUTES.MY_REMINDERS} element={<MyReminders />} />
           <Route path={ROUTES.SUPPORT} element={<Support />} />
@@ -73,6 +76,11 @@ const AppRoutes = () => {
           <Route path={ROUTES.ADMIN_PACKAGES} element={<AdminPackages />} />
           <Route path={ROUTES.ADMIN_CLIENTS} element={<AdminClients />} />
           <Route path={ROUTES.ADMIN_COMPANIES} element={<AdminCompanies />} />
+
+          <Route
+            path={ROUTES.ADMIN_COMPANY_DETAIL}
+            element={<AdminCompanyDetail />}
+          />
           <Route path={ROUTES.ADMIN_INVOICES} element={<AdminInvoices />} />
           <Route path={ROUTES.ADMIN_QUOTATIONS} element={<AdminQuotations />} />
           <Route path={ROUTES.SETTINGS} element={<Settings />} />

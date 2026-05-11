@@ -142,6 +142,35 @@ export const getCompany = async (req, res) => {
   }
 }
 
+export const getMyCompany = async (req, res) => {
+  try {
+    const user = await User.findOne({ uid: req.user.uid }).lean()
+    if (!user?.companyId) {
+      return res
+        .status(404)
+        .json({ error: 'No company associated with your account' })
+    }
+
+    const company = await Company.findById(user.companyId)
+      .populate('accountManagerId', 'displayName email avatarUrl')
+      .lean()
+    if (!company) return res.status(404).json({ error: 'Company not found' })
+
+    const [users, packages] = await Promise.all([
+      User.find({ companyId: company._id })
+        .select('uid displayName email role jobTitle phone avatarUrl')
+        .sort({ displayName: 1 })
+        .lean(),
+      Package.find({ companyId: company._id }).sort({ expiryDate: 1 }).lean(),
+    ])
+
+    res.json({ company, users, packages })
+  } catch (err) {
+    console.error('getMyCompany error:', err)
+    res.status(500).json({ error: 'Failed to fetch company details' })
+  }
+}
+
 // Admin: update company (changing tier cascades to open issues)
 export const updateCompany = async (req, res) => {
   try {

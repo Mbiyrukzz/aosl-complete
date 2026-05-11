@@ -19,10 +19,15 @@ import {
   Archive,
   Pause,
   CheckCircle2,
+  Eye,
 } from 'lucide-react'
 import Modal from '../components/Modal'
 import { useCompanies } from '../hooks/useCompanies'
-import { ROUTES, buildAdminIssuesPath } from '../constants/routes'
+import {
+  ROUTES,
+  buildAdminIssuesPath,
+  buildAdminCompanyPath,
+} from '../constants/routes'
 
 /* ---------- Styled components (unchanged) ---------- */
 
@@ -442,6 +447,24 @@ const FormActions = styled.div`
   gap: 0.6rem;
   justify-content: flex-end;
 `
+const IconLink = styled(Link)`
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+  color: ${({ theme }) => theme.colors.muted};
+  text-decoration: none;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: currentColor;
+    color: ${({ theme }) => theme.colors.text};
+  }
+`
 
 /* ----- Constants ----- */
 
@@ -684,6 +707,12 @@ const AdminCompanies = () => {
                   </StatusPill>
                 </CompanyTitle>
                 <CardActions>
+                  <IconLink
+                    to={buildAdminCompanyPath(company._id)}
+                    aria-label="View company"
+                  >
+                    <Eye size={15} />
+                  </IconLink>
                   <IconButton
                     onClick={() => openEdit(company)}
                     aria-label="Edit"

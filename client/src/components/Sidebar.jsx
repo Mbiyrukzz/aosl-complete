@@ -363,6 +363,10 @@ const Sidebar = () => {
         {/* ── Client-only items ──────────────────────────────────────────── */}
         {!isStaff && (
           <>
+            <Item to={ROUTES.COMPANY_DETAILS}>
+              <Building2 size={18} />
+              <span className="label">Company</span>
+            </Item>
             <Item to={ROUTES.MY_PACKAGES}>
               <Package size={18} />
               <span className="label">My Packages</span>
