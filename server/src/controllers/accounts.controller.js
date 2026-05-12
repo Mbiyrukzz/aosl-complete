@@ -446,7 +446,8 @@ export const uploadInvoicePDF = async (req, res) => {
       refNumber,
       type: 'uploaded',
       etimsRef: etimsRef || '',
-      attachmentUrl: `/uploads/${req.file.filename}`,
+
+      attachmentUrl: `/uploads/invoices/${req.file.filename}`,
       companyId: companyId || null,
       clientName: clientName || '',
       clientEmail: clientEmail || '',

@@ -118,6 +118,23 @@ const generateTempPassword = () => {
   return out
 }
 
+export const getClientDetail = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .populate('companyId', 'name tier slug')
+      .lean()
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    res.json({ user })
+  } catch (err) {
+    console.error('getClientDetail error:', err)
+    res.status(500).json({ error: 'Failed to fetch client detail' })
+  }
+}
+
 export const listAllUsers = async (req, res) => {
   try {
     const filter = {}

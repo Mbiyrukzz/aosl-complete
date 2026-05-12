@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import {
   Users,
@@ -15,18 +16,20 @@ import {
   Crown,
   Award,
   Gem,
+  Eye,
 } from 'lucide-react'
-import { useAuthedRequest } from '../hooks/useAuthedRequest'
 import Modal from '../components/Modal'
+import { useClients } from '../hooks/useClients'
 import { useCompanies } from '../hooks/useCompanies'
 import { FullScreenLoader } from '../components/Loader'
+import { buildAdminClientPath } from '../constants/routes'
 
+/* ── Styled components (unchanged from original) ── */
 const Wrapper = styled.div`
   max-width: 1100px;
   margin: 0 auto;
   padding: 2rem;
 `
-
 const PageHead = styled.div`
   display: flex;
   align-items: flex-start;
@@ -35,12 +38,10 @@ const PageHead = styled.div`
   margin-bottom: 2rem;
   flex-wrap: wrap;
 `
-
 const Heading = styled.div`
   display: flex;
   align-items: center;
   gap: 0.85rem;
-
   .icon-wrap {
     display: inline-flex;
     align-items: center;
@@ -51,21 +52,18 @@ const Heading = styled.div`
     color: #6366f1;
     border-radius: ${({ theme }) => theme.radii.lg};
   }
-
   h1 {
     color: ${({ theme }) => theme.colors.text};
-    margin: 0 0 0.2rem 0;
+    margin: 0 0 0.2rem;
     font-size: 1.65rem;
     letter-spacing: -0.02em;
   }
-
   p {
     color: ${({ theme }) => theme.colors.muted};
     margin: 0;
     font-size: 0.88rem;
   }
 `
-
 const PrimaryButton = styled.button`
   display: inline-flex;
   align-items: center;
@@ -80,7 +78,6 @@ const PrimaryButton = styled.button`
   cursor: pointer;
   font-family: inherit;
   transition: transform 0.15s ease;
-
   &:hover:not(:disabled) {
     transform: translateY(-1px);
   }
@@ -89,7 +86,6 @@ const PrimaryButton = styled.button`
     cursor: not-allowed;
   }
 `
-
 const SecondaryButton = styled.button`
   padding: 0.7rem 1.2rem;
   background: transparent;
@@ -100,32 +96,25 @@ const SecondaryButton = styled.button`
   cursor: pointer;
   font-family: inherit;
 `
-
-/* ---------- Group / Row ---------- */
-
 const CompanyGroup = styled.div`
   margin-bottom: 1.5rem;
 `
-
 const GroupHead = styled.div`
   display: flex;
   align-items: center;
   gap: 0.6rem;
   padding: 0.5rem 0.75rem;
   margin-bottom: 0.5rem;
-
   .name {
     color: ${({ theme }) => theme.colors.text};
     font-weight: 700;
     font-size: 0.92rem;
   }
-
   .count {
     color: ${({ theme }) => theme.colors.muted};
     font-size: 0.78rem;
   }
 `
-
 const TierBadge = styled.span`
   display: inline-flex;
   align-items: center;
@@ -139,10 +128,9 @@ const TierBadge = styled.span`
   background: ${({ $tint }) => $tint};
   color: ${({ $color }) => $color};
 `
-
 const Row = styled.div`
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto auto;
   gap: 1rem;
   align-items: center;
   padding: 1rem 1.25rem;
@@ -151,19 +139,16 @@ const Row = styled.div`
   border-radius: ${({ theme }) => theme.radii.md};
   margin-bottom: 0.5rem;
   transition: border-color 0.18s ease;
-
   &:hover {
     border-color: ${({ theme }) => theme.colors.primary};
   }
-
   @media (max-width: 720px) {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto;
     .desktop-only {
       display: none;
     }
   }
 `
-
 const Avatar = styled.div`
   width: 40px;
   height: 40px;
@@ -177,17 +162,14 @@ const Avatar = styled.div`
   font-weight: 700;
   flex-shrink: 0;
 `
-
 const RowInfo = styled.div`
   min-width: 0;
-
   .name {
     font-weight: 600;
     color: ${({ theme }) => theme.colors.text};
     font-size: 0.95rem;
     margin-bottom: 0.2rem;
   }
-
   .meta {
     display: flex;
     flex-wrap: wrap;
@@ -195,14 +177,12 @@ const RowInfo = styled.div`
     color: ${({ theme }) => theme.colors.muted};
     font-size: 0.82rem;
   }
-
   .meta-item {
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
   }
 `
-
 const RolePill = styled.span`
   display: inline-flex;
   align-items: center;
@@ -216,7 +196,6 @@ const RolePill = styled.span`
   background: ${({ $tint }) => $tint};
   color: ${({ $color }) => $color};
 `
-
 const RoleSelect = styled.select`
   padding: 0.45rem 1.8rem 0.45rem 0.7rem;
   background: ${({ theme }) => theme.colors.background};
@@ -231,41 +210,49 @@ const RoleSelect = styled.select`
   background-repeat: no-repeat;
   background-position: right 0.55rem center;
 `
-
-/* ---------- Form ---------- */
-
+const IconLink = styled(Link)`
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+  color: ${({ theme }) => theme.colors.muted};
+  text-decoration: none;
+  transition: all 0.15s ease;
+  &:hover {
+    border-color: currentColor;
+    color: ${({ theme }) => theme.colors.text};
+  }
+`
 const Form = styled.form`
   display: flex;
   flex-direction: column;
   gap: 1rem;
 `
-
 const FormRow = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
-
   @media (max-width: 540px) {
     grid-template-columns: 1fr;
   }
 `
-
 const Field = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
 `
-
 const Label = styled.label`
   font-size: 0.82rem;
   font-weight: 600;
   color: ${({ theme }) => theme.colors.text};
-
   .required {
     color: #ef4444;
   }
 `
-
 const Input = styled.input`
   padding: 0.65rem 0.9rem;
   background: ${({ theme }) => theme.colors.background};
@@ -274,13 +261,11 @@ const Input = styled.input`
   color: ${({ theme }) => theme.colors.text};
   font-family: inherit;
   font-size: 0.92rem;
-
   &:focus {
     outline: none;
     border-color: ${({ theme }) => theme.colors.primary};
   }
 `
-
 const Select = styled.select`
   padding: 0.65rem 0.9rem;
   background: ${({ theme }) => theme.colors.background};
@@ -290,26 +275,22 @@ const Select = styled.select`
   font-family: inherit;
   font-size: 0.92rem;
   cursor: pointer;
-
   &:disabled {
     opacity: 0.55;
     cursor: not-allowed;
   }
 `
-
 const FormActions = styled.div`
   display: flex;
   gap: 0.6rem;
   justify-content: flex-end;
 `
-
 const SuccessBox = styled.div`
   padding: 1rem;
   background: rgba(16, 185, 129, 0.08);
   border: 1px solid rgba(16, 185, 129, 0.25);
   border-radius: ${({ theme }) => theme.radii.md};
   margin-bottom: 1rem;
-
   .top {
     display: flex;
     align-items: center;
@@ -319,20 +300,17 @@ const SuccessBox = styled.div`
     font-size: 0.92rem;
     margin-bottom: 0.5rem;
   }
-
   .desc {
     color: ${({ theme }) => theme.colors.text};
     font-size: 0.86rem;
     line-height: 1.55;
     margin-bottom: 0.85rem;
   }
-
   .link-wrap {
     display: flex;
     gap: 0.5rem;
     align-items: stretch;
   }
-
   .link-input {
     flex: 1;
     padding: 0.55rem 0.8rem;
@@ -346,7 +324,6 @@ const SuccessBox = styled.div`
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-
   .copy-btn {
     display: inline-flex;
     align-items: center;
@@ -362,7 +339,6 @@ const SuccessBox = styled.div`
     font-family: inherit;
   }
 `
-
 const Empty = styled.div`
   text-align: center;
   padding: 4rem 1rem;
@@ -371,8 +347,6 @@ const Empty = styled.div`
   border: 1px dashed ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.lg};
 `
-
-/* ---------- Constants ---------- */
 
 const ROLE_CONFIG = {
   client: {
@@ -394,7 +368,6 @@ const ROLE_CONFIG = {
     label: 'Admin',
   },
 }
-
 const TIER_CONFIG = {
   silver: {
     color: '#94a3b8',
@@ -415,7 +388,6 @@ const TIER_CONFIG = {
     label: 'Platinum',
   },
 }
-
 const TIER_WEIGHT = { platinum: 0, gold: 1, silver: 2 }
 
 const initials = (name = '') => {
@@ -423,7 +395,6 @@ const initials = (name = '') => {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase() || '?'
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
-
 const blankForm = {
   name: '',
   email: '',
@@ -433,14 +404,16 @@ const blankForm = {
   role: 'client',
 }
 
-/* ---------- Component ---------- */
-
 const AdminClients = () => {
-  const { isReady, get, post, patch } = useAuthedRequest()
+  const {
+    clients: users,
+    loading,
+    createClient,
+    updateClientRole,
+  } = useClients()
+
   const { companies } = useCompanies()
 
-  const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState(blankForm)
   const [saving, setSaving] = useState(false)
@@ -449,32 +422,12 @@ const AdminClients = () => {
   const [createdUser, setCreatedUser] = useState(null)
   const [copied, setCopied] = useState(false)
 
-  const loadData = async () => {
-    if (!isReady) return
-
-    setLoading(true)
-
-    try {
-      const usersRes = await get('/api/admin/clients')
-      setUsers(usersRes.users)
-    } catch (err) {
-      console.error('Failed to load:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-  useEffect(() => {
-    loadData()
-  }, [isReady])
-
   const handleCreate = async (e) => {
     e.preventDefault()
     setError('')
     setSaving(true)
-
     try {
-      const data = await post('/api/admin/clients', form)
-      setUsers((prev) => [data.user, ...prev])
+      const data = await createClient(form)
       setResetLink(data.resetLink)
       setCreatedUser(data.user)
       setForm(blankForm)
@@ -487,12 +440,7 @@ const AdminClients = () => {
 
   const handleRoleChange = async (id, newRole) => {
     try {
-      const { user } = await patch(`/api/admin/clients/${id}/role`, {
-        role: newRole,
-      })
-      setUsers((prev) =>
-        prev.map((u) => (u._id === user._id ? { ...u, ...user } : u)),
-      )
+      await updateClientRole(id, newRole)
     } catch (err) {
       alert(
         'Failed to update role: ' + (err.response?.data?.error || err.message),
@@ -514,41 +462,34 @@ const AdminClients = () => {
       await navigator.clipboard.writeText(resetLink)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      alert('Could not copy. Select the link manually and copy.')
+    } catch {
+      alert('Could not copy. Select the link manually.')
     }
   }
 
   const updateField = (field) => (e) =>
     setForm({ ...form, [field]: e.target.value })
 
-  // Group users into: companies (sorted by tier) + ungrouped (staff/admin)
   const grouped = (() => {
     const byCompany = new Map()
     const ungrouped = []
-
     users.forEach((u) => {
       if (u.companyId && typeof u.companyId === 'object') {
         const id = u.companyId._id
-        if (!byCompany.has(id)) {
-          byCompany.set(id, {
-            company: u.companyId,
-            users: [],
-          })
-        }
+        if (!byCompany.has(id))
+          byCompany.set(id, { company: u.companyId, users: [] })
         byCompany.get(id).users.push(u)
       } else {
         ungrouped.push(u)
       }
     })
-
     const groups = Array.from(byCompany.values()).sort((a, b) => {
       const tw =
         (TIER_WEIGHT[a.company.tier] ?? 9) - (TIER_WEIGHT[b.company.tier] ?? 9)
-      if (tw !== 0) return tw
-      return (a.company.name || '').localeCompare(b.company.name || '')
+      return tw !== 0
+        ? tw
+        : (a.company.name || '').localeCompare(b.company.name || '')
     })
-
     return { groups, ungrouped }
   })()
 
@@ -587,6 +528,9 @@ const AdminClients = () => {
           <option value="staff">Staff</option>
           <option value="admin">Admin</option>
         </RoleSelect>
+        <IconLink to={buildAdminClientPath(user._id)} aria-label="View client">
+          <Eye size={15} />
+        </IconLink>
       </Row>
     )
   }
@@ -614,9 +558,7 @@ const AdminClients = () => {
         <FullScreenLoader label="Loading clients and team members..." />
       ) : users.length === 0 ? (
         <Empty>
-          <p style={{ marginBottom: '1.25rem' }}>
-            No accounts yet. Register your first client to get started.
-          </p>
+          <p style={{ marginBottom: '1.25rem' }}>No accounts yet.</p>
           <PrimaryButton onClick={() => setModalOpen(true)}>
             <UserPlus size={16} /> Register client
           </PrimaryButton>
@@ -631,7 +573,7 @@ const AdminClients = () => {
                 <GroupHead>
                   <Building2
                     size={15}
-                    style={{ color: 'var(--muted, #6b7280)' }}
+                    style={{ color: 'var(--muted,#6b7280)' }}
                   />
                   <span className="name">{company.name}</span>
                   <TierBadge $tint={tierCfg.tint} $color={tierCfg.color}>
@@ -646,13 +588,12 @@ const AdminClients = () => {
               </CompanyGroup>
             )
           })}
-
           {grouped.ungrouped.length > 0 && (
             <CompanyGroup>
               <GroupHead>
                 <ShieldCheck
                   size={15}
-                  style={{ color: 'var(--muted, #6b7280)' }}
+                  style={{ color: 'var(--muted,#6b7280)' }}
                 />
                 <span className="name">Internal team</span>
                 <span className="count">
@@ -680,8 +621,7 @@ const AdminClients = () => {
               </div>
               <p className="desc">
                 Share the password reset link below with{' '}
-                <strong>{createdUser.email}</strong>. They'll set their own
-                password and gain access.
+                <strong>{createdUser.email}</strong>.
               </p>
               <div className="link-wrap">
                 <input
@@ -716,7 +656,6 @@ const AdminClients = () => {
                 {error}
               </div>
             )}
-
             <FormRow>
               <Field>
                 <Label>Full name</Label>
@@ -738,7 +677,6 @@ const AdminClients = () => {
                 />
               </Field>
             </FormRow>
-
             <Field>
               <Label>
                 Company{' '}
@@ -753,7 +691,7 @@ const AdminClients = () => {
                 <option value="">
                   {form.role === 'client'
                     ? companies.length === 0
-                      ? 'No companies yet — create one first'
+                      ? 'No companies yet'
                       : 'Select a company...'
                     : 'Not required for staff/admin'}
                 </option>
@@ -764,7 +702,6 @@ const AdminClients = () => {
                 ))}
               </Select>
             </Field>
-
             <FormRow>
               <Field>
                 <Label>Job title (optional)</Label>
@@ -784,7 +721,6 @@ const AdminClients = () => {
                 />
               </Field>
             </FormRow>
-
             <Field>
               <Label>Role</Label>
               <Select value={form.role} onChange={updateField('role')}>
@@ -793,7 +729,6 @@ const AdminClients = () => {
                 <option value="admin">Admin — full access</option>
               </Select>
             </Field>
-
             <FormActions>
               <SecondaryButton type="button" onClick={closeModal}>
                 Cancel

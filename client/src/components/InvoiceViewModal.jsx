@@ -380,6 +380,11 @@ const getDueStatus = (inv) => {
 
 /* ── Component ───────────────────────────────────────────── */
 
+const API_ORIGIN = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+
+const toBackendUrl = (path) =>
+  path?.startsWith('http') ? path : `${API_ORIGIN}${path}`
+
 export const InvoiceViewModal = ({ open, onClose, invoice: doc, onSend }) => {
   if (!open || !doc) return null
 
@@ -446,7 +451,7 @@ export const InvoiceViewModal = ({ open, onClose, invoice: doc, onSend }) => {
               <Btn
                 className="primary"
                 as="a"
-                href={doc.attachmentUrl}
+                href={toBackendUrl(doc.attachmentUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
               >

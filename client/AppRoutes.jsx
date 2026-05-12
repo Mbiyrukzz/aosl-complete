@@ -31,6 +31,7 @@ import AdminInvoices from './src/pages/AdminInvoices'
 import AdminQuotations from './src/pages/AdminQuotations'
 import CompanyDetails from './src/pages/CompanyDetails'
 import AdminCompanyDetail from './src/pages/AdminCompanyDetail'
+import AdminClientDetail from './src/pages/AdminClientDetail'
 
 const AppRoutes = () => {
   return (
@@ -75,6 +76,10 @@ const AppRoutes = () => {
           <Route path={ROUTES.ADMIN_REMINDERS} element={<AdminReminders />} />
           <Route path={ROUTES.ADMIN_PACKAGES} element={<AdminPackages />} />
           <Route path={ROUTES.ADMIN_CLIENTS} element={<AdminClients />} />
+          <Route
+            path={ROUTES.ADMIN_CLIENT_DETAIL}
+            element={<AdminClientDetail />}
+          />
           <Route path={ROUTES.ADMIN_COMPANIES} element={<AdminCompanies />} />
 
           <Route

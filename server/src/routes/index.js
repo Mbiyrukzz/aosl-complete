@@ -2,6 +2,7 @@ import { healthRoute } from './healthRoute.js'
 import { meRoute } from './authRoutes.js'
 import {
   createClientRoute,
+  getClientDetailRoute,
   listAllUsersRoute,
   listStaffRoute,
   profileRoute,
@@ -93,6 +94,7 @@ const routes = [
   syncEmailRoute,
   listStaffRoute,
   createClientRoute,
+  getClientDetailRoute,
   listAllUsersRoute,
   updateUserRoleRoute,
 

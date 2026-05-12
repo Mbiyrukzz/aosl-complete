@@ -15,6 +15,7 @@ export const ROUTES = {
   ADMIN_JOBS: '/admin/jobs',
   ADMIN_APPLICATIONS: '/admin/applications',
   ADMIN_CLIENTS: '/admin/clients',
+  ADMIN_CLIENT_DETAIL: '/admin/clients/:id',
   ADMIN_COMPANIES: '/admin/companies',
   ADMIN_REMINDERS: '/admin/reminders',
   ADMIN_PACKAGES: '/admin/packages',
@@ -31,6 +32,8 @@ export const buildIssuePath = (id) => `/support/${id}`
 export const buildJobPath = (id) => `/careers/${id}`
 
 export const buildAdminCompanyPath = (id) => `/admin/companies/${id}`
+
+export const buildAdminClientPath = (id) => `/admin/clients/${id}`
 
 export const buildAdminIssuesPath = (companyId) =>
   companyId ? `/admin/issues?companyId=${companyId}` : '/admin/issues'

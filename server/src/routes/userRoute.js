@@ -8,6 +8,7 @@ import {
   updateMyProfile,
   uploadAvatar,
   syncEmail,
+  getClientDetail,
 } from '../controllers/users.controller.js'
 import { verifyFirebaseToken } from '../middleware/verifyFirebaseToken.js'
 import { isAdmin } from '../middleware/isAdmin.js'
@@ -67,4 +68,11 @@ export const updateUserRoleRoute = {
   method: 'patch',
   middleware: [verifyFirebaseToken, isAdmin],
   handler: updateUserRole,
+}
+
+export const getClientDetailRoute = {
+  path: '/admin/clients/:id',
+  method: 'get',
+  middleware: [verifyFirebaseToken, isAdmin],
+  handler: getClientDetail,
 }

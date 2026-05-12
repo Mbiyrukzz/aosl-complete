@@ -8,6 +8,7 @@ import { PackagesProvider } from './PackagesProvider'
 import { RemindersProvider } from './RemindersProvider'
 import { CompaniesProvider } from './CompaniesProvider'
 import { AccountsProvider } from './AccountsProvider'
+import { ClientsProvider } from './ClientsProvider'
 
 function AppProvider({ children }) {
   return (
@@ -17,13 +18,15 @@ function AppProvider({ children }) {
         <SocketProvider>
           <NotificationsProvider>
             <CompaniesProvider>
-              <AccountsProvider>
-                <IssuesProvider>
-                  <PackagesProvider>
-                    <RemindersProvider>{children} </RemindersProvider>
-                  </PackagesProvider>
-                </IssuesProvider>
-              </AccountsProvider>
+              <ClientsProvider>
+                <AccountsProvider>
+                  <IssuesProvider>
+                    <PackagesProvider>
+                      <RemindersProvider>{children} </RemindersProvider>
+                    </PackagesProvider>
+                  </IssuesProvider>
+                </AccountsProvider>
+              </ClientsProvider>
             </CompaniesProvider>
           </NotificationsProvider>
         </SocketProvider>
