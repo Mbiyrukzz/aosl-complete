@@ -6,6 +6,8 @@ import {
   updatePackage,
   deletePackage,
   listMyPackages,
+  getPackage,
+  getMyPackage,
 } from '../controllers/packages.controller.js'
 
 export const createPackageRoute = {
@@ -37,4 +39,18 @@ export const myPackagesRoute = {
   method: 'get',
   middleware: [verifyFirebaseToken],
   handler: listMyPackages,
+}
+
+export const getPackageRoute = {
+  path: '/admin/packages/:id',
+  method: 'get',
+  middleware: [verifyFirebaseToken, isAdmin],
+  handler: getPackage,
+}
+
+export const myPackageDetailRoute = {
+  path: '/me/packages/:id',
+  method: 'get',
+  middleware: [verifyFirebaseToken],
+  handler: getMyPackage,
 }

@@ -55,7 +55,9 @@ import {
 import {
   createPackageRoute,
   deletePackageRoute,
+  getPackageRoute,
   listPackagesRoute,
+  myPackageDetailRoute,
   myPackagesRoute,
   updatePackageRoute,
 } from './packagesRoutes.js'
@@ -152,6 +154,8 @@ const routes = [
   updatePackageRoute,
   deletePackageRoute,
   myPackagesRoute,
+  getPackageRoute,
+  myPackageDetailRoute,
 
   accountsStatsRoute,
   listQuotationsRoute,

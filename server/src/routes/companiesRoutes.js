@@ -27,7 +27,7 @@ export const listCompaniesRoute = {
 export const getMyCompanyRoute = {
   path: '/companies/mine',
   method: 'get',
-  middleware: [verifyFirebaseToken], // any authenticated user
+  middleware: [verifyFirebaseToken],
   handler: getMyCompany,
 }
 

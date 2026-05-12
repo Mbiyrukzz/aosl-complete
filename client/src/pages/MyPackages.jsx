@@ -393,7 +393,13 @@ const MyPackages = () => {
             const isExpired = days < 0
 
             return (
-              <Card key={pkg._id} $urgent={isUrgent || isExpired}>
+              <Card
+                key={pkg._id}
+                $urgent={isUrgent || isExpired}
+                as={Link}
+                to={ROUTES.MY_PACKAGE_DETAIL.replace(':id', pkg._id)}
+                style={{ textDecoration: 'none' }}
+              >
                 <CardTop>
                   <TypeIconBox $tint={typeCfg.tint} $color={typeCfg.color}>
                     <TypeIcon size={20} />

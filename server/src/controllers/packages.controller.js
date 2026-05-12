@@ -234,6 +234,52 @@ export const updatePackage = async (req, res) => {
   }
 }
 
+export const getPackage = async (req, res) => {
+  try {
+    const pkg = await Package.findById(req.params.id)
+      .populate('companyId', 'name tier industry')
+      .lean()
+
+    if (!pkg) {
+      return res.status(404).json({ error: 'Package not found' })
+    }
+
+    res.json({ package: pkg })
+  } catch (err) {
+    console.error('getPackage error:', err)
+    res.status(500).json({ error: 'Failed to fetch package' })
+  }
+}
+
+export const getMyPackage = async (req, res) => {
+  try {
+    const me = await User.findOne({ uid: req.user.uid }).lean()
+
+    if (!me) {
+      return res.status(404).json({ error: 'Profile not found' })
+    }
+
+    if (!me.companyId) {
+      return res.status(404).json({ error: 'No company linked' })
+    }
+
+    const pkg = await Package.findOne({
+      _id: req.params.id,
+      companyId: me.companyId,
+    })
+      .populate('companyId', 'name tier industry website')
+      .lean()
+
+    if (!pkg) {
+      return res.status(404).json({ error: 'Package not found' })
+    }
+
+    res.json({ package: pkg })
+  } catch (err) {
+    console.error('getMyPackage error:', err)
+    res.status(500).json({ error: 'Failed to fetch package' })
+  }
+}
 // ----- Admin: delete package + cancel its reminders -----
 export const deletePackage = async (req, res) => {
   try {
@@ -264,6 +310,7 @@ export const listMyPackages = async (req, res) => {
 
     const packages = await Package.find({ companyId: me.companyId })
       .sort({ expiryDate: 1 })
+      .populate('companyId', 'name tier industry')
       .lean()
 
     res.json({ packages })

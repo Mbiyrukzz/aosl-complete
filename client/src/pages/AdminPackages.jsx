@@ -20,6 +20,8 @@ import {
   MessageSquare,
   Bell,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { buildAdminPackagePath } from '../constants/routes'
 import Modal from '../components/Modal'
 import { usePackages } from '../hooks/usePackages'
 import { useCompanies } from '../hooks/useCompanies'
@@ -537,6 +539,8 @@ const AdminPackages = () => {
     refetch({ status: statusFilter })
   }, [statusFilter, refetch])
 
+  const navigate = useNavigate()
+
   const filtered =
     statusFilter === 'all'
       ? packages
@@ -699,7 +703,11 @@ const AdminPackages = () => {
           const days = daysUntil(pkg.expiryDate)
 
           return (
-            <Row key={pkg._id}>
+            <Row
+              key={pkg._id}
+              onClick={() => navigate(buildAdminPackagePath(pkg._id))}
+              style={{ cursor: 'pointer' }}
+            >
               <TypeIconBox $tint={typeCfg.tint} $color={typeCfg.color}>
                 <TypeIcon size={18} />
               </TypeIconBox>
@@ -731,11 +739,21 @@ const AdminPackages = () => {
               >
                 <StatusIcon size={11} /> {statusCfg.label}
               </StatusPill>
-              <IconButton onClick={() => openEdit(pkg)} aria-label="Edit">
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation()
+                  openEdit(pkg)
+                }}
+                aria-label="Edit"
+              >
                 <Edit2 size={15} />
               </IconButton>
+
               <IconButton
-                onClick={() => handleDelete(pkg._id)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDelete(pkg._id)
+                }}
                 $danger
                 aria-label="Delete"
               >

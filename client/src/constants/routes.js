@@ -19,7 +19,9 @@ export const ROUTES = {
   ADMIN_COMPANIES: '/admin/companies',
   ADMIN_REMINDERS: '/admin/reminders',
   ADMIN_PACKAGES: '/admin/packages',
+  ADMIN_PACKAGE_DETAIL: '/admin/packages/:id',
   MY_PACKAGES: '/my-packages',
+  MY_PACKAGE_DETAIL: '/my-packages/:id',
   MY_REMINDERS: '/my-reminders',
   COMPANY_DETAILS: '/dashboard/company',
   ADMIN_INVOICES: '/accounts/invoices',
@@ -34,6 +36,10 @@ export const buildJobPath = (id) => `/careers/${id}`
 export const buildAdminCompanyPath = (id) => `/admin/companies/${id}`
 
 export const buildAdminClientPath = (id) => `/admin/clients/${id}`
+
+export const buildAdminPackagePath = (id) => `/admin/packages/${id}`
+
+export const buildMyPackagePath = (id) => `/my-packages/${id}`
 
 export const buildAdminIssuesPath = (companyId) =>
   companyId ? `/admin/issues?companyId=${companyId}` : '/admin/issues'

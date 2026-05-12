@@ -32,6 +32,8 @@ import AdminQuotations from './src/pages/AdminQuotations'
 import CompanyDetails from './src/pages/CompanyDetails'
 import AdminCompanyDetail from './src/pages/AdminCompanyDetail'
 import AdminClientDetail from './src/pages/AdminClientDetail'
+import AdminPackageDetail from './src/pages/AdminPackageDetail'
+import MyPackageDetailPage from './src/pages/MyPackageDetailPage'
 
 const AppRoutes = () => {
   return (
@@ -55,6 +57,10 @@ const AppRoutes = () => {
           <Route path={ROUTES.DASHBOARD} element={<Dashboard />} />
           <Route path={ROUTES.COMPANY_DETAILS} element={<CompanyDetails />} />
           <Route path={ROUTES.MY_PACKAGES} element={<MyPackages />} />
+          <Route
+            path={ROUTES.MY_PACKAGE_DETAIL}
+            element={<MyPackageDetailPage />}
+          />
           <Route path={ROUTES.MY_REMINDERS} element={<MyReminders />} />
           <Route path={ROUTES.SUPPORT} element={<Support />} />
           <Route path={ROUTES.SUPPORT_DETAIL} element={<IssueDetail />} />
@@ -75,6 +81,10 @@ const AppRoutes = () => {
           />
           <Route path={ROUTES.ADMIN_REMINDERS} element={<AdminReminders />} />
           <Route path={ROUTES.ADMIN_PACKAGES} element={<AdminPackages />} />
+          <Route
+            path={ROUTES.ADMIN_PACKAGE_DETAIL}
+            element={<AdminPackageDetail />}
+          />
           <Route path={ROUTES.ADMIN_CLIENTS} element={<AdminClients />} />
           <Route
             path={ROUTES.ADMIN_CLIENT_DETAIL}
