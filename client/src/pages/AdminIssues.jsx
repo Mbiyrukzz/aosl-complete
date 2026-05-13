@@ -914,7 +914,10 @@ const AdminIssues = () => {
                     gap: '0.25rem',
                   }}
                 >
-                  <MessageSquare size={13} /> {issue.commentCount || 0}
+                  <MessageSquare size={13} />{' '}
+                  {issue.commentCount ??
+                    issue.comments?.filter((c) => !c.deleted).length ??
+                    0}
                 </span>
               </RowMeta>
 

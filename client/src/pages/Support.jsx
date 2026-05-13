@@ -512,8 +512,13 @@ const Support = () => {
             (PRIORITY_ORDER[b.priority] || 0) -
             (PRIORITY_ORDER[a.priority] || 0)
           )
-        case 'most_commented':
-          return (b.commentCount || 0) - (a.commentCount || 0)
+        case 'most_commented': {
+          const countA =
+            a.commentCount ?? a.comments?.filter((c) => !c.deleted).length ?? 0
+          const countB =
+            b.commentCount ?? b.comments?.filter((c) => !c.deleted).length ?? 0
+          return countB - countA
+        }
         case 'newest':
         default:
           return new Date(b.createdAt) - new Date(a.createdAt)
@@ -673,7 +678,9 @@ const Support = () => {
               <RowMeta>
                 <span className="meta-item">
                   <MessageSquare size={14} />
-                  {issue.commentCount || 0}
+                  {issue.commentCount ??
+                    issue.comments?.filter((c) => !c.deleted).length ??
+                    0}
                 </span>
               </RowMeta>
             </IssueRow>
