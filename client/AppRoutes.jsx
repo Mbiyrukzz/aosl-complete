@@ -34,6 +34,8 @@ import AdminCompanyDetail from './src/pages/AdminCompanyDetail'
 import AdminClientDetail from './src/pages/AdminClientDetail'
 import AdminPackageDetail from './src/pages/AdminPackageDetail'
 import MyPackageDetailPage from './src/pages/MyPackageDetailPage'
+import MyReminderDetail from './src/pages/MyReminderDetail'
+import AdminReminderDetail from './src/pages/AdminReminderDetail'
 
 const AppRoutes = () => {
   return (
@@ -62,6 +64,10 @@ const AppRoutes = () => {
             element={<MyPackageDetailPage />}
           />
           <Route path={ROUTES.MY_REMINDERS} element={<MyReminders />} />
+          <Route
+            path={ROUTES.MY_REMINDER_DETAIL}
+            element={<MyReminderDetail />}
+          />
           <Route path={ROUTES.SUPPORT} element={<Support />} />
           <Route path={ROUTES.SUPPORT_DETAIL} element={<IssueDetail />} />
           <Route path={ROUTES.SETTINGS} element={<Settings />} />
@@ -80,6 +86,10 @@ const AppRoutes = () => {
             element={<AdminApplications />}
           />
           <Route path={ROUTES.ADMIN_REMINDERS} element={<AdminReminders />} />
+          <Route
+            path={ROUTES.ADMIN_REMINDER_DETAIL}
+            element={<AdminReminderDetail />}
+          />
           <Route path={ROUTES.ADMIN_PACKAGES} element={<AdminPackages />} />
           <Route
             path={ROUTES.ADMIN_PACKAGE_DETAIL}
@@ -91,7 +101,6 @@ const AppRoutes = () => {
             element={<AdminClientDetail />}
           />
           <Route path={ROUTES.ADMIN_COMPANIES} element={<AdminCompanies />} />
-
           <Route
             path={ROUTES.ADMIN_COMPANY_DETAIL}
             element={<AdminCompanyDetail />}

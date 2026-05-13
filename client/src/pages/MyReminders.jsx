@@ -7,6 +7,8 @@ import {
   Mail,
   MessageSquare,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { buildMyReminderPath } from '../constants/routes'
 import { useReminders } from '../hooks/useReminders'
 import { FullScreenLoader } from '../components/Loader'
 
@@ -59,10 +61,15 @@ const ReminderRow = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.md};
   margin-bottom: 0.5rem;
-  transition: border-color 0.15s ease;
+  cursor: pointer;
+
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
 
   &:hover {
     border-color: ${({ theme }) => theme.colors.primary};
+    transform: translateY(-1px);
   }
 
   ${({ $sent, theme }) =>
@@ -195,6 +202,8 @@ const formatCountdown = (date, status) => {
 const MyReminders = () => {
   const { reminders = [], loading } = useReminders()
 
+  const navigate = useNavigate()
+
   if (loading) {
     return (
       <Wrapper>
@@ -241,7 +250,10 @@ const MyReminders = () => {
                 const days = daysUntil(r.scheduledFor)
                 const isSoon = days <= 1
                 return (
-                  <ReminderRow key={r._id}>
+                  <ReminderRow
+                    key={r._id}
+                    onClick={() => navigate(buildMyReminderPath(r._id))}
+                  >
                     <IconBox $tint={cfg.tint} $color={cfg.color}>
                       <Bell size={16} />
                     </IconBox>
@@ -283,7 +295,11 @@ const MyReminders = () => {
                 const cfg =
                   CATEGORY_CONFIG[r.category] || CATEGORY_CONFIG.general
                 return (
-                  <ReminderRow key={r._id} $sent>
+                  <ReminderRow
+                    key={r._id}
+                    $sent
+                    onClick={() => navigate(buildMyReminderPath(r._id))}
+                  >
                     <IconBox $tint={cfg.tint} $color={cfg.color}>
                       <CheckCircle2 size={16} />
                     </IconBox>

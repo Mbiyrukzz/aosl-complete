@@ -14,11 +14,13 @@ import {
   Repeat,
   XCircle,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
 import Modal from '../components/Modal'
 import { useReminders } from '../hooks/useReminders'
 import { useCompanies } from '../hooks/useCompanies'
 import { FullScreenLoader } from '../components/Loader'
+import { buildAdminReminderPath } from '../constants/routes'
 
 const Wrapper = styled.div`
   max-width: 1100px;
@@ -137,11 +139,15 @@ const ReminderRow = styled.div`
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.radii.md};
+  cursor: pointer;
   margin-bottom: 0.5rem;
-  transition: border-color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
 
   &:hover {
     border-color: ${({ theme }) => theme.colors.primary};
+    transform: translateY(-1px);
   }
 
   @media (max-width: 720px) {
@@ -448,6 +454,8 @@ const AdminReminders = () => {
   const [form, setForm] = useState(blankForm)
   const [saving, setSaving] = useState(false)
 
+  const navigate = useNavigate()
+
   // Fetch users for the selected company (for optional user targeting)
   useEffect(() => {
     const fetchUsers = async () => {
@@ -585,7 +593,10 @@ const AdminReminders = () => {
           const status = STATUS_CONFIG[r.status] || STATUS_CONFIG.scheduled
           const StatusIcon = status.icon
           return (
-            <ReminderRow key={r._id}>
+            <ReminderRow
+              key={r._id}
+              onClick={() => navigate(buildAdminReminderPath(r._id))}
+            >
               <ReminderInfo>
                 <div className="top">
                   <h3>{r.title}</h3>
@@ -623,11 +634,20 @@ const AdminReminders = () => {
                   {r.channels?.whatsapp && <MessageSquare size={12} />}
                 </div>
               </ReminderInfo>
-              <IconButton onClick={() => openEdit(r)} aria-label="Edit">
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation()
+                  openEdit(r)
+                }}
+                aria-label="Edit"
+              >
                 <Edit2 size={15} />
               </IconButton>
               <IconButton
-                onClick={() => handleDelete(r._id)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDelete(r._id)
+                }}
                 $danger
                 aria-label="Delete"
               >
