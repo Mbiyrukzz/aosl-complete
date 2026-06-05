@@ -18,12 +18,15 @@ import {
   Award,
   Building2,
   X,
+  Plus,
 } from 'lucide-react'
 import { useIssues } from '../hooks/useIssues'
 import { useUser } from '../hooks/useUser'
 import { buildIssuePath } from '../constants/routes'
 import IssueListSkeleton from '../components/IssueListSkeleton'
 import TierBadge from '../components/TierBadge'
+import Modal from '../components/Modal'
+import AdminIssueForm from '../components/AdminIssueForm'
 
 /* ---------- Layout ---------- */
 
@@ -116,6 +119,27 @@ const ClearButton = styled.button`
 
   &:hover {
     background: rgba(99, 102, 241, 0.1);
+  }
+`
+const NewButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 1.15rem;
+  background: ${({ theme }) => theme.colors.primary};
+  color: white;
+  border: none;
+  border-radius: ${({ theme }) => theme.radii.md};
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    opacity 0.2s ease,
+    transform 0.15s ease;
+  &:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
   }
 `
 
@@ -552,11 +576,19 @@ const formatDate = (date) => {
 /* ---------- Component ---------- */
 
 const AdminIssues = () => {
-  const { issues, staff, loading, error, updateStatus, assignIssue } =
-    useIssues()
+  const {
+    issues,
+    staff,
+    loading,
+    error,
+    updateStatus,
+    assignIssue,
+    createIssue,
+  } = useIssues()
+
   const { user } = useUser()
   const [searchParams, setSearchParams] = useSearchParams()
-
+  const [createOpen, setCreateOpen] = useState(false)
   const [filter, setFilter] = useState('all')
   const [assigneeFilter, setAssigneeFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
@@ -679,6 +711,11 @@ const AdminIssues = () => {
     user,
   ])
 
+  const handleAdminCreate = async (formData) => {
+    await createIssue(formData)
+    setCreateOpen(false)
+  }
+
   const handleStatusChange = async (id, newStatus) => {
     try {
       await updateStatus(id, newStatus)
@@ -707,6 +744,9 @@ const AdminIssues = () => {
             <p>Manage and respond to issues across all users.</p>
           </div>
         </Heading>
+        <NewButton onClick={() => setCreateOpen(true)}>
+          <Plus size={16} /> Create issue for client
+        </NewButton>
       </PageHead>
 
       {/* Company filter banner — only shown when arriving via ?companyId= */}
@@ -950,6 +990,17 @@ const AdminIssues = () => {
           )
         })
       )}
+
+      <Modal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Create issue for client"
+      >
+        <AdminIssueForm
+          onSubmit={handleAdminCreate}
+          onCancel={() => setCreateOpen(false)}
+        />
+      </Modal>
     </Wrapper>
   )
 }

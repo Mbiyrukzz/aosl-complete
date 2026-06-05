@@ -1202,6 +1202,19 @@ const IssueDetail = () => {
           </EscalatedBanner>
         )}
 
+        {issue.createdByStaffUid && (
+          <EscalatedBanner
+            style={{
+              background: 'rgba(99,102,241,0.08)',
+              borderColor: 'rgba(99,102,241,0.25)',
+              color: '#6366f1',
+            }}
+          >
+            <ShieldAlert size={15} />
+            This issue was opened on your behalf by our support team.
+          </EscalatedBanner>
+        )}
+
         <HeaderMeta>
           <StatusPill $status={issue.status}>
             {statusIcon(issue.status)}

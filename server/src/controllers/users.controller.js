@@ -187,6 +187,30 @@ export const listStaff = async (req, res) => {
   }
 }
 
+export const listClients = async (req, res) => {
+  try {
+    const clients = await User.find({ role: 'client' })
+      .populate('companyId', 'name tier')
+      .select('uid email displayName companyId')
+      .sort({ email: 1 })
+      .lean()
+
+    res.json({
+      users: clients.map((u) => ({
+        uid: u.uid,
+        email: u.email,
+        displayName: u.displayName,
+        companyId: u.companyId?._id ?? null,
+        companyName: u.companyId?.name ?? null,
+        companyTier: u.companyId?.tier ?? null,
+      })),
+    })
+  } catch (err) {
+    console.error('listClients error:', err)
+    res.status(500).json({ error: 'Failed to fetch clients' })
+  }
+}
+
 // --------- Auth'd: get my full profile ---------
 export const getMyProfile = async (req, res) => {
   try {

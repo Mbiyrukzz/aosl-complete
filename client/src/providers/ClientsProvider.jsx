@@ -27,6 +27,11 @@ export const ClientsProvider = ({ children }) => {
     }
   }, [isReady, isStaff, get])
 
+  const listClients = useCallback(async () => {
+    const data = await get('/api/users/clients')
+    return data.users || []
+  }, [get])
+
   useEffect(() => {
     if (!user || !isStaff) {
       setClients([])
@@ -69,6 +74,7 @@ export const ClientsProvider = ({ children }) => {
     <ClientsContext.Provider
       value={{
         clients,
+        listClients,
         loading,
         error,
         refetch: fetchClients,

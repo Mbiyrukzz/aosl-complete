@@ -9,6 +9,7 @@ import {
   uploadAvatar,
   syncEmail,
   getClientDetail,
+  listClients,
 } from '../controllers/users.controller.js'
 import { verifyFirebaseToken } from '../middleware/verifyFirebaseToken.js'
 import { isAdmin } from '../middleware/isAdmin.js'
@@ -75,4 +76,11 @@ export const getClientDetailRoute = {
   method: 'get',
   middleware: [verifyFirebaseToken, isAdmin],
   handler: getClientDetail,
+}
+
+export const listClientsRoute = {
+  path: '/users/clients',
+  method: 'get',
+  middleware: [verifyFirebaseToken, isStaff], // staff can see clients, not just admin
+  handler: listClients,
 }

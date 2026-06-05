@@ -17,7 +17,12 @@ const populateCompany = (query) => query.populate('companyId', 'name tier')
 export const listIssues = async (req, res) => {
   try {
     const { role, uid } = req.user
-    const filter = isStaffRole(role) ? {} : { createdBy: uid }
+
+    let filter = {}
+
+    if (!isStaffRole(role)) {
+      filter = { createdBy: uid }
+    }
 
     const issues = await populateCompany(
       Issue.find(filter).sort({ createdAt: -1 }).limit(100),
@@ -130,6 +135,21 @@ export const createIssue = async (req, res) => {
         .json({ error: 'Title and description are required' })
     }
 
+    const isStaffUser = req.user.role === 'staff' || req.user.role === 'admin'
+
+    const createdBy =
+      isStaffUser && req.body.targetClientUid
+        ? req.body.targetClientUid
+        : req.user.uid
+
+    const createdByEmail =
+      isStaffUser && req.body.targetClientEmail
+        ? req.body.targetClientEmail
+        : req.user.email
+
+    const createdByStaffUid =
+      isStaffUser && req.body.targetClientUid ? req.user.uid : null
+
     const attachments = (req.files || []).map((file) => ({
       filename: file.filename,
       originalName: file.originalname,
@@ -138,13 +158,15 @@ export const createIssue = async (req, res) => {
       url: `/uploads/${file.filename}`,
     }))
 
-    const reporter = await User.findOne({ uid: req.user.uid })
+    // Load the actual ticket owner/client
+    const reporter = await User.findOne({ uid: createdBy })
       .populate('companyId', 'tier name')
       .lean()
 
     const company = reporter?.companyId
-    const companyId = company?._id || null
-    const companyTier = company?.tier || null
+
+    const companyId = company?._id || req.body.companyId || null
+    const companyTier = company?.tier || req.body.companyTier || null
 
     const slaHours = SLA_HOURS_BY_TIER[companyTier]
     const slaDeadline = slaHours
@@ -155,8 +177,9 @@ export const createIssue = async (req, res) => {
       title,
       description,
       priority,
-      createdBy: req.user.uid,
-      createdByEmail: req.user.email,
+      createdBy,
+      createdByEmail,
+      createdByStaffUid,
       attachments,
       companyId,
       companyTier,
@@ -166,7 +189,7 @@ export const createIssue = async (req, res) => {
 
     const payload = issue.toJSON()
 
-    // ── Notify the reporter (email + WhatsApp) ──────────────────
+    // Notify ticket owner/client
     try {
       if (reporter) {
         await dispatch({
@@ -174,7 +197,11 @@ export const createIssue = async (req, res) => {
           title: `We've received your request: "${title}"`,
           message: `Your ticket has been created (priority: ${priority}). We'll respond shortly.`,
           category: 'issue_created',
-          channels: { email: true, whatsapp: true, inApp: false },
+          channels: {
+            email: true,
+            whatsapp: true,
+            inApp: false,
+          },
           actionUrl: `/support/${issue._id}`,
           actionLabel: 'View ticket',
           extraVars: {
@@ -187,7 +214,6 @@ export const createIssue = async (req, res) => {
         })
       }
     } catch (notifyErr) {
-      // Non-fatal — log but don't fail the request
       console.error(
         'Client issue-created notification failed:',
         notifyErr.message,
@@ -195,15 +221,25 @@ export const createIssue = async (req, res) => {
     }
 
     if (req.io) {
-      req.io.to(`user:${req.user.uid}`).emit('issue:created', payload)
+      // Notify ticket owner
+      req.io.to(`user:${createdBy}`).emit('issue:created', payload)
+
+      // Notify staff dashboard
       req.io.to('staff').emit('issue:created', payload)
 
-      const staffUsers = await User.find({ role: { $in: ['staff', 'admin'] } })
+      const staffUsers = await User.find({
+        role: { $in: ['staff', 'admin'] },
+      })
         .select('uid')
         .lean()
 
       const tierTag = companyTier ? ` [${companyTier.toUpperCase()}]` : ''
+
       const companyName = company?.name ? ` from ${company.name}` : ''
+
+      const submittedBy = createdByStaffUid
+        ? ` (created by staff ${req.user.email})`
+        : ''
 
       await createNotificationsBulk(
         req.io,
@@ -214,7 +250,9 @@ export const createIssue = async (req, res) => {
           issueTitle: issue.title,
           actorUid: req.user.uid,
           actorEmail: req.user.email,
-          message: `New ${priority} issue${tierTag}${companyName} from ${req.user.email}`,
+          message:
+            `New ${priority} issue${tierTag}${companyName} ` +
+            `for ${createdByEmail}${submittedBy}`,
         })),
       )
     }

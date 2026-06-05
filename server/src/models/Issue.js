@@ -54,6 +54,8 @@ const issueSchema = new mongoose.Schema(
     },
     createdBy: { type: String, required: true, index: true },
     createdByEmail: { type: String, required: true },
+
+    createdByStaffUid: { type: String, default: null, index: true },
     assignedTo: { type: String, default: null, index: true },
 
     companyId: {
