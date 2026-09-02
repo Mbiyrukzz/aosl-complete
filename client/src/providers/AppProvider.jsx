@@ -9,6 +9,8 @@ import { RemindersProvider } from './RemindersProvider'
 import { CompaniesProvider } from './CompaniesProvider'
 import { AccountsProvider } from './AccountsProvider'
 import { ClientsProvider } from './ClientsProvider'
+import { SitesProvider } from './SitesProvider'
+import { AdminPaymentsProvider } from './AdminPaymentsProvider'
 
 function AppProvider({ children }) {
   return (
@@ -22,7 +24,13 @@ function AppProvider({ children }) {
                 <AccountsProvider>
                   <IssuesProvider>
                     <PackagesProvider>
-                      <RemindersProvider>{children} </RemindersProvider>
+                      <RemindersProvider>
+                        <SitesProvider>
+                          <AdminPaymentsProvider>
+                            {children}
+                          </AdminPaymentsProvider>
+                        </SitesProvider>
+                      </RemindersProvider>
                     </PackagesProvider>
                   </IssuesProvider>
                 </AccountsProvider>

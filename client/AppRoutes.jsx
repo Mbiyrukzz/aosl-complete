@@ -36,6 +36,10 @@ import AdminPackageDetail from './src/pages/AdminPackageDetail'
 import MyPackageDetailPage from './src/pages/MyPackageDetailPage'
 import MyReminderDetail from './src/pages/MyReminderDetail'
 import AdminReminderDetail from './src/pages/AdminReminderDetail'
+import AdminSites from './src/pages/AdminSites'
+import AdminPayments from './src/pages/AdminPayments'
+import SiteDetailPage from './src/pages/SiteDetailPage'
+import PaymentDetailPage from './src/pages/PaymentDetailPage'
 
 const AppRoutes = () => {
   return (
@@ -79,6 +83,13 @@ const AppRoutes = () => {
         element={<ProtectedRoute allowedRoles={[ROLES.STAFF, ROLES.ADMIN]} />}
       >
         <Route element={<DashboardLayout />}>
+          <Route path={ROUTES.ADMIN_SITES} element={<AdminSites />} />
+          <Route path={ROUTES.ADMIN_PAYMENTS} element={<AdminPayments />} />
+          <Route path={ROUTES.ADMIN_SITE_DETAIL} element={<SiteDetailPage />} />
+          <Route
+            path={ROUTES.ADMIN_PAYMENT_DETAIL}
+            element={<PaymentDetailPage />}
+          />
           <Route path={ROUTES.ADMIN_ISSUES} element={<AdminIssues />} />
           <Route path={ROUTES.ADMIN_JOBS} element={<AdminJobs />} />
           <Route

@@ -21,6 +21,10 @@ export const ROUTES = {
   ADMIN_REMINDER_DETAIL: '/admin/reminders/:id',
   ADMIN_PACKAGES: '/admin/packages',
   ADMIN_PACKAGE_DETAIL: '/admin/packages/:id',
+  ADMIN_SITES: '/admin/sites',
+  ADMIN_PAYMENTS: '/admin/payments',
+  ADMIN_SITE_DETAIL: '/admin/sites/:id',
+  ADMIN_PAYMENT_DETAIL: '/admin/payments/:id',
 
   MY_PACKAGES: '/my-packages',
   MY_PACKAGE_DETAIL: '/my-packages/:id',
@@ -43,6 +47,9 @@ export const buildAdminReminderPath = (id) => `/admin/reminders/${id}`
 export const buildMyReminderPath = (id) => `/my-reminders/${id}`
 export const buildAdminIssuesPath = (companyId) =>
   companyId ? `/admin/issues?companyId=${companyId}` : '/admin/issues'
+
+export const buildAdminSitePath = (id) => `/admin/sites/${id}`
+export const buildAdminPaymentPath = (id) => `/admin/payments/${id}`
 
 export const ROLES = {
   CLIENT: 'client',

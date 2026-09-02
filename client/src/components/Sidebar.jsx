@@ -12,13 +12,12 @@ import {
   Moon,
   Briefcase,
   Building2,
-  Inbox,
-  Users,
   Package,
   FileText,
   FileQuestion,
   Settings as SettingsIcon,
   ChevronDown,
+  Wallet,
 } from 'lucide-react'
 import { auth } from '../services/firebase'
 import { useUser } from '../hooks/useUser'
@@ -381,19 +380,31 @@ const Sidebar = () => {
         {/* ── Staff / Admin grouped items ────────────────────────────────── */}
         {isStaff && (
           <>
-            {/* People: Clients + Applications */}
             <NavGroup
-              icon={Users}
-              label="People"
-              routes={[ROUTES.ADMIN_CLIENTS, ROUTES.ADMIN_APPLICATIONS]}
+              icon={Shield}
+              label="Workspace"
+              routes={[
+                ROUTES.ADMIN_ISSUES,
+                ROUTES.ADMIN_REMINDERS,
+                ROUTES.ADMIN_SITES,
+                ROUTES.ADMIN_PAYMENTS,
+              ]}
             >
-              <SubItem to={ROUTES.ADMIN_CLIENTS}>
-                <Users size={15} />
-                <span className="label">Clients</span>
+              <SubItem to={ROUTES.ADMIN_ISSUES}>
+                <Shield size={15} />
+                <span className="label">All Issues</span>
               </SubItem>
-              <SubItem to={ROUTES.ADMIN_APPLICATIONS}>
-                <Inbox size={15} />
-                <span className="label">Applications</span>
+              <SubItem to={ROUTES.ADMIN_REMINDERS}>
+                <Bell size={15} />
+                <span className="label">Reminders</span>
+              </SubItem>
+              <SubItem to={ROUTES.ADMIN_SITES}>
+                <Building2 size={15} />
+                <span className="label">Sites</span>
+              </SubItem>
+              <SubItem to={ROUTES.ADMIN_PAYMENTS}>
+                <Wallet size={15} />
+                <span className="label">Payments</span>
               </SubItem>
             </NavGroup>
 

@@ -86,6 +86,23 @@ import {
   updateQuotationRoute,
   uploadInvoicePDFRoute,
 } from './Accountsroutes.js'
+import {
+  paymentsConfirmationRoute,
+  paymentsSitesConfirmationRoute,
+  paymentsSitesValidationRoute,
+  paymentsValidationRoute,
+} from './paymentsRoutes.js'
+import {
+  createSiteRoute,
+  deleteSiteRoute,
+  getSiteRoute,
+  listSitesRoute,
+  updateSiteRoute,
+} from './sitesRoutes.js'
+import {
+  adminGetPaymentRoute,
+  adminListPaymentsRoute,
+} from './adminPaymentsRoutes.js'
 
 const routes = [
   healthRoute,
@@ -173,6 +190,20 @@ const routes = [
   getInvoiceRoute,
   updateInvoiceRoute,
   sendInvoiceRoute,
+
+  paymentsValidationRoute,
+  paymentsConfirmationRoute,
+  paymentsSitesValidationRoute,
+  paymentsSitesConfirmationRoute,
+
+  listSitesRoute,
+  getSiteRoute,
+  createSiteRoute,
+  updateSiteRoute,
+  deleteSiteRoute,
+
+  adminListPaymentsRoute,
+  adminGetPaymentRoute,
 ]
 
 export default routes
