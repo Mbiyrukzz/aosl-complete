@@ -1,7 +1,10 @@
 import { Quotation } from '../models/Quotation.js'
 import { Invoice } from '../models/Invoice.js'
 import { Company } from '../models/Company.js'
+import { User } from '../models/User.js'
 import { sendEmail } from '../services/email.service.js'
+import fs from 'fs'
+import path from 'path'
 
 /* ─── helpers ─────────────────────────────────────────────── */
 
@@ -29,6 +32,24 @@ const calcTotals = (lineItems, vatRate) => {
 
 const populateCompany = (q) =>
   q.populate('companyId', 'name tier primaryContactEmail address')
+
+/**
+ * Persist a base64-encoded PDF to disk under uploads/invoices/ and return
+ * the relative URL to store as attachmentUrl. Used for both "generated"
+ * invoices (client-rendered PDF, sent here as base64) and re-saves.
+ */
+const persistPdf = (refNumber, pdfBase64) => {
+  if (!pdfBase64) return null
+
+  const dir = path.join(process.cwd(), 'uploads', 'invoices')
+  fs.mkdirSync(dir, { recursive: true })
+
+  const filename = `${refNumber}-generated.pdf`
+  const filePath = path.join(dir, filename)
+  fs.writeFileSync(filePath, Buffer.from(pdfBase64, 'base64'))
+
+  return `/uploads/invoices/${filename}`
+}
 
 /* ─── QUOTATIONS ──────────────────────────────────────────── */
 
@@ -478,6 +499,29 @@ export const uploadInvoicePDF = async (req, res) => {
   }
 }
 
+/* ─── STORE A GENERATED PDF WITHOUT SENDING (draft downloads) ── */
+
+export const storeInvoicePDF = async (req, res) => {
+  try {
+    const { pdfBase64 } = req.body
+    if (!pdfBase64) {
+      return res.status(400).json({ error: 'pdfBase64 is required' })
+    }
+
+    const inv = await Invoice.findById(req.params.id)
+    if (!inv) return res.status(404).json({ error: 'Invoice not found' })
+
+    const attachmentUrl = persistPdf(inv.refNumber, pdfBase64)
+    inv.attachmentUrl = attachmentUrl
+    await inv.save()
+
+    res.json({ invoice: inv.toObject() })
+  } catch (err) {
+    console.error('storeInvoicePDF error:', err)
+    res.status(500).json({ error: 'Failed to store invoice PDF' })
+  }
+}
+
 /* ─── SEND INVOICE BY EMAIL ──────────────────────────────── */
 
 export const sendInvoice = async (req, res) => {
@@ -511,14 +555,14 @@ export const sendInvoice = async (req, res) => {
 
     // For uploaded eTIMS invoices, attach the original file too
     if (inv.type === 'uploaded' && inv.attachmentUrl) {
-      const fs = await import('fs')
-      const path = await import('path')
-      const filePath = path.join(process.cwd(), inv.attachmentUrl)
-      if (fs.existsSync(filePath)) {
+      const fs2 = await import('fs')
+      const path2 = await import('path')
+      const filePath = path2.join(process.cwd(), inv.attachmentUrl)
+      if (fs2.existsSync(filePath)) {
         mailOptions.attachments = mailOptions.attachments || []
         mailOptions.attachments.push({
           filename: `${inv.etimsRef || inv.refNumber}-etims.pdf`,
-          content: fs.readFileSync(filePath),
+          content: fs2.readFileSync(filePath),
           contentType: 'application/pdf',
         })
       }
@@ -526,11 +570,18 @@ export const sendInvoice = async (req, res) => {
 
     await sendEmail(mailOptions)
 
-    await Invoice.findByIdAndUpdate(inv._id, {
+    // Persist the same PDF we just emailed so it becomes downloadable
+    // from the client portal too — not just for uploaded eTIMS invoices.
+    const update = {
       status: 'sent',
       sentAt: new Date(),
       sentTo: to,
-    })
+    }
+    if (pdfBase64 && inv.type === 'generated') {
+      update.attachmentUrl = persistPdf(inv.refNumber, pdfBase64)
+    }
+
+    await Invoice.findByIdAndUpdate(inv._id, update)
 
     res.json({ success: true, sentTo: to })
   } catch (err) {
@@ -588,6 +639,45 @@ export const getAccountsStats = async (req, res) => {
   } catch (err) {
     console.error('getAccountsStats error:', err)
     res.status(500).json({ error: 'Failed to fetch stats' })
+  }
+}
+
+/* ─── CLIENT: MY INVOICES ────────────────────────────────── */
+
+export const listMyInvoices = async (req, res) => {
+  try {
+    const user = await User.findOne({ uid: req.user.uid }).lean()
+    if (!user?.companyId) {
+      return res.json({ invoices: [] })
+    }
+
+    const invoices = await Invoice.find({ companyId: user.companyId })
+      .sort({ createdAt: -1 })
+      .lean()
+
+    // Any invoice with a persisted attachmentUrl is downloadable —
+    // both "uploaded" eTIMS invoices and "generated" invoices that have
+    // been sent or explicitly saved via storeInvoicePDF.
+    const decorated = invoices.map((inv) => ({
+      _id: inv._id,
+      refNumber: inv.refNumber,
+      type: inv.type,
+      currency: inv.currency,
+      total: inv.total,
+      status: inv.status,
+      issueDate: inv.issueDate,
+      dueDate: inv.dueDate,
+      paidAt: inv.paidAt,
+      subject: inv.subject,
+      downloadUrl: inv.attachmentUrl
+        ? `${req.protocol}://${req.get('host')}${inv.attachmentUrl}`
+        : null,
+    }))
+
+    res.json({ invoices: decorated })
+  } catch (err) {
+    console.error('listMyInvoices error:', err)
+    res.status(500).json({ error: 'Failed to fetch invoices' })
   }
 }
 

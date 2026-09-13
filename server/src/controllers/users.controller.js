@@ -4,11 +4,11 @@ import { Company } from '../models/Company.js'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { normalizePhone, sendSms, } from '../services/smsService.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// --------- Admin: create a new client ---------
 
 export const createClient = async (req, res) => {
   try {
@@ -95,6 +95,21 @@ export const createClient = async (req, res) => {
 
     const resetLink = await admin.auth().generatePasswordResetLink(email.trim())
 
+    // Notify the new user by SMS with their login link + temp password.
+    // Best-effort — a failed SMS should never undo account creation.
+    let smsSent = false
+    if (phone?.trim()) {
+      const msisdn = normalizePhone(phone.trim())
+      if (msisdn) {
+        const loginUrl = 'https://ashmif.com/login'
+        const message = `Your AOSL portal account is ready.\nLogin: ${loginUrl}\nEmail: ${email.trim()}\nTemp password: ${tempPassword}`
+        const result = await sendSms(msisdn, message)
+        smsSent = result?.status === 'success'
+      } else {
+        console.warn(`Could not normalize phone "${phone}" — SMS not sent`)
+      }
+    }
+
     // Populate company on the way out so the frontend doesn't need a second round-trip
     const populated = await User.findById(user._id)
       .populate('companyId', 'name tier slug')
@@ -103,6 +118,7 @@ export const createClient = async (req, res) => {
     res.status(201).json({
       user: populated,
       resetLink,
+      smsSent,
     })
   } catch (err) {
     console.error('createClient error:', err)

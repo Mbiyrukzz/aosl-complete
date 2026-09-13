@@ -17,6 +17,8 @@ import {
   uploadInvoicePDF,
   sendInvoice,
   getAccountsStats,
+  listMyInvoices,
+  storeInvoicePDF,
 } from '../controllers/accounts.controller.js'
 
 /* ── Quotations ────────────────────────────────────────────── */
@@ -127,4 +129,19 @@ export const accountsStatsRoute = {
   method: 'get',
   middleware: [verifyFirebaseToken, isStaff],
   handler: getAccountsStats,
+}
+
+
+export const myInvoicesRoute = {
+  path: '/me/invoices',
+  method: 'get',
+  middleware: [verifyFirebaseToken],
+  handler: listMyInvoices,
+}
+
+export const storeInvoicePdfRoute = {
+  path: '/accounts/invoices/:id/store-pdf',
+  method: 'post',
+  middleware: [verifyFirebaseToken, isStaff],
+  handler: storeInvoicePDF,
 }

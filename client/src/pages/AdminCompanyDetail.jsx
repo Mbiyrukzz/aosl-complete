@@ -573,6 +573,14 @@ const STATUS_CONFIG = {
   },
 }
 
+const INVOICE_STATUS_CONFIG = {
+  draft: { tint: 'rgba(107,114,128,0.15)', color: '#6b7280' },
+  sent: { tint: 'rgba(59,130,246,0.12)', color: '#3b82f6' },
+  paid: { tint: 'rgba(16,185,129,0.12)', color: '#10b981' },
+  overdue: { tint: 'rgba(239,68,68,0.12)', color: '#ef4444' },
+  cancelled: { tint: 'rgba(107,114,128,0.15)', color: '#6b7280' },
+}
+
 const blankForm = {
   name: '',
   tier: 'silver',
@@ -590,7 +598,8 @@ const AdminCompanyDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  const { updateCompany, deleteCompany, getCompanyDetail } = useCompanies()
+  const { updateCompany, deleteCompany, getCompanyDetail, getCompanyInvoices } =
+    useCompanies()
 
   const [activeTab, setActiveTab] = useState('users')
   const [editOpen, setEditOpen] = useState(false)
@@ -601,6 +610,9 @@ const AdminCompanyDetail = () => {
 
   const [company, setCompany] = useState(null)
   const [error, setError] = useState(null)
+
+  const [invoices, setInvoices] = useState([])
+  const [invoicesLoading, setInvoicesLoading] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!id) return
@@ -618,7 +630,17 @@ const AdminCompanyDetail = () => {
     } finally {
       setLoading(false)
     }
-  }, [id, getCompanyDetail])
+
+    setInvoicesLoading(true)
+    try {
+      const invs = await getCompanyInvoices(id)
+      setInvoices(invs)
+    } catch (err) {
+      console.error('Failed to fetch invoices:', err)
+    } finally {
+      setInvoicesLoading(false)
+    }
+  }, [id, getCompanyDetail, getCompanyInvoices])
 
   useEffect(() => {
     refresh()
@@ -807,8 +829,8 @@ const AdminCompanyDetail = () => {
               <Globe size={13} className="icon" />
               <span className="key">Website</span>
               <span className="val">
-                <a
-                  href={company.website}
+                
+                <a  href={company.website}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -919,6 +941,13 @@ const AdminCompanyDetail = () => {
         >
           <AlertCircle size={13} /> Open issues
           <span className="badge">{issueCount}</span>
+        </Tab>
+        <Tab
+          $active={activeTab === 'invoices'}
+          onClick={() => setActiveTab('invoices')}
+        >
+          <FileText size={13} /> Invoices
+          <span className="badge">{invoices.length}</span>
         </Tab>
       </Tabs>
 
@@ -1088,6 +1117,71 @@ const AdminCompanyDetail = () => {
                     </Td>
                   </tr>
                 ))}
+              </tbody>
+            </Table>
+          ))}
+
+        {/* Invoices tab */}
+        {activeTab === 'invoices' &&
+          (invoicesLoading ? (
+            <Empty>Loading invoices…</Empty>
+          ) : invoices.length === 0 ? (
+            <Empty>No invoices for this company yet.</Empty>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Ref</Th>
+                  <Th>Status</Th>
+                  <Th>Total</Th>
+                  <Th>Due</Th>
+                  <Th></Th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((inv) => {
+                  const invCfg =
+                    INVOICE_STATUS_CONFIG[inv.status] ||
+                    INVOICE_STATUS_CONFIG.draft
+
+                  return (
+                    <tr key={inv._id}>
+                      <Td>{inv.refNumber}</Td>
+                      <Td>
+                        <Chip $tint={invCfg.tint} $color={invCfg.color}>
+                          {inv.status}
+                        </Chip>
+                      </Td>
+                      <Td style={{ color: 'var(--muted)', fontSize: '0.83rem' }}>
+                        {inv.currency}{' '}
+                        {Number(inv.total).toLocaleString('en-KE', {
+                          minimumFractionDigits: 2,
+                        })}
+                      </Td>
+                      <Td style={{ color: 'var(--muted)', fontSize: '0.83rem' }}>
+                        {inv.dueDate
+                          ? new Date(inv.dueDate).toLocaleDateString('en-KE', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })
+                          : '—'}
+                      </Td>
+                      <Td>
+                        <Link
+  to={`${ROUTES.ADMIN_INVOICES}?invoiceId=${inv._id}`}
+  style={{
+    color: 'var(--primary)',
+    fontSize: '0.8rem',
+    textDecoration: 'none',
+  }}
+>
+  View <ArrowUpRight size={11} />
+</Link>
+                      </Td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </Table>
           ))}

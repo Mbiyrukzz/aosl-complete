@@ -2,6 +2,7 @@ import { Company } from '../models/Company.js'
 import { User } from '../models/User.js'
 import { Package } from '../models/Package.js'
 import { Issue } from '../models/Issue.js'
+import { normalizePhone, sendSms } from '../services/smsService.js'
 
 // Admin: create company
 export const createCompany = async (req, res) => {
@@ -35,7 +36,21 @@ export const createCompany = async (req, res) => {
       notes: notes?.trim() || '',
     })
 
-    res.status(201).json({ company: company.toObject() })
+    // Notify the primary contact by SMS that their company account is set up.
+    // Best-effort — a failed SMS should never undo company creation.
+    let smsSent = false
+    if (phone?.trim()) {
+      const msisdn = normalizePhone(phone.trim())
+      if (msisdn) {
+        const message = `Hello, ${company.name}'s account with Ashmif Office Solutions is now active (${company.tier.toUpperCase()} tier). Your team will be added to the client portal shortly.`
+        const result = await sendSms(msisdn, message)
+        smsSent = result?.status === 'success'
+      } else {
+        console.warn(`Could not normalize phone "${phone}" — SMS not sent`)
+      }
+    }
+
+    res.status(201).json({ company: company.toObject(), smsSent })
   } catch (err) {
     if (err.code === 11000) {
       return res

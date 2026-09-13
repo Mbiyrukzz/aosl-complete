@@ -7,6 +7,23 @@ const TALKSASA_API_TOKEN = process.env.TALKSASA_API_TOKEN
 const TALKSASA_SENDER_ID = process.env.TALKSASA_SENDER_ID
 
 /**
+ * Normalize a Kenyan phone number to the 254XXXXXXXXX MSISDN format Talksasa expects.
+ * Accepts: 07XXXXXXXX, 7XXXXXXXX, +2547XXXXXXXX, 2547XXXXXXXX
+ * Returns null if it can't confidently normalize.
+ */
+export function normalizePhone(raw) {
+  if (!raw) return null
+  const digits = raw.replace(/\D/g, '')
+
+  if (digits.startsWith('254') && digits.length === 12) return digits
+  if (digits.startsWith('0') && digits.length === 10) return `254${digits.slice(1)}`
+  if (digits.length === 9 && (digits.startsWith('7') || digits.startsWith('1')))
+    return `254${digits}`
+
+  return null
+}
+
+/**
  * Send a plain-text SMS via Talksasa.
  * @param {string} recipient - MSISDN, e.g. "254712345678". Comma-separate for multiple.
  * @param {string} message

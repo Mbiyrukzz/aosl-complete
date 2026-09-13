@@ -1,7 +1,9 @@
 import styled, { keyframes } from 'styled-components'
-import { X, Download, Send, AlertTriangle, CheckCircle } from 'lucide-react'
+import { X, Download, Send, AlertTriangle, CheckCircle, Save } from 'lucide-react'
 import { PDFDownloadLink, pdf } from '@react-pdf/renderer'
 import { blobToBase64, QuotationPDFDocument } from '../pdf/QuotationPDF'
+import { useAuthedRequest } from '../hooks/useAuthedRequest'
+import { useState } from 'react'
 
 /* ── Animations ───────────────────────────────────────────── */
 const fadeIn = keyframes`from { opacity: 0 } to { opacity: 1 }`
@@ -10,12 +12,21 @@ const slideUp = keyframes`
   to   { transform: translateY(0);    opacity: 1 }
 `
 
+/* ── Status → accent color ───────────────────────────────── */
+const STATUS_ACCENT = {
+  draft: '#94a3b8',
+  sent: '#3b82f6',
+  paid: '#10b981',
+  overdue: '#ef4444',
+  cancelled: '#6b7280',
+}
+
 /* ── Layout ───────────────────────────────────────────────── */
 const Overlay = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(3px);
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
   z-index: 1000;
   display: flex;
   align-items: flex-start;
@@ -27,12 +38,19 @@ const Overlay = styled.div`
 
 const Sheet = styled.div`
   background: #fff;
-  border-radius: 12px;
+  border-radius: 14px;
   width: 100%;
-  max-width: 780px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  max-width: 820px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
   animation: ${slideUp} 0.22s ease;
   overflow: hidden;
+  position: relative;
+`
+
+const AccentBar = styled.div`
+  height: 4px;
+  width: 100%;
+  background: ${({ $color }) => $color};
 `
 
 /* ── Modal top bar ───────────────────────────────────────── */
@@ -41,8 +59,10 @@ const TopBar = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border-bottom: 1px solid #eef0f2;
+  background: #fafbfc;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 
   .left {
     display: flex;
@@ -51,70 +71,79 @@ const TopBar = styled.div`
     flex-wrap: wrap;
   }
   .title {
-    font-weight: 600;
-    font-size: 0.9rem;
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: #0f172a;
   }
   .ref {
-    font-size: 0.78rem;
-    font-family: monospace;
-    color: #6b7280;
-    background: #e5e7eb;
-    padding: 0.2rem 0.55rem;
-    border-radius: 4px;
+    font-size: 0.76rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: #475569;
+    background: #eef0f2;
+    padding: 0.2rem 0.6rem;
+    border-radius: 5px;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.22rem 0.6rem;
+    border-radius: 999px;
+    background: ${({ $tint }) => $tint};
+    color: ${({ $color }) => $color};
   }
   .badge-etims {
-    font-size: 0.7rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
+    font-size: 0.68rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
     background: #fef3c7;
-    color: #d97706;
-    font-weight: 600;
+    color: #b45309;
+    font-weight: 700;
     border: 1px solid #fcd34d;
-  }
-  .badge-paid {
-    font-size: 0.7rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
-    background: #d1fae5;
-    color: #059669;
-    font-weight: 600;
-    border: 1px solid #6ee7b7;
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
   }
 `
 
 const Actions = styled.div`
   display: flex;
-  gap: 0.5rem;
+  gap: 0.45rem;
+  flex-wrap: wrap;
 `
 
 const Btn = styled.button`
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.4rem 0.85rem;
-  font-size: 0.8rem;
-  font-weight: 500;
-  border-radius: 7px;
-  border: 1px solid #e5e7eb;
+  padding: 0.42rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #e2e5e9;
   background: #fff;
-  color: #1a1a1a;
+  color: #0f172a;
   cursor: pointer;
   font-family: inherit;
   transition: all 0.12s ease;
 
   &:hover {
-    background: #f3f4f6;
+    background: #f5f6f8;
+    border-color: #d3d7dc;
+  }
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 
   &.primary {
-    background: #1a1a1a;
+    background: #0f172a;
     color: #fff;
     border-color: transparent;
     &:hover {
-      opacity: 0.85;
+      opacity: 0.88;
+      background: #0f172a;
     }
   }
 
@@ -133,137 +162,179 @@ const CloseBtn = styled.button`
   justify-content: center;
   width: 30px;
   height: 30px;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  border: 1px solid #e2e5e9;
   background: transparent;
   cursor: pointer;
-  color: #6b7280;
+  color: #64748b;
   &:hover {
-    background: #f3f4f6;
-    color: #1a1a1a;
+    background: #f5f6f8;
+    color: #0f172a;
   }
 `
 
 /* ── Document body ───────────────────────────────────────── */
 const DocBody = styled.div`
-  padding: 2.5rem 3rem;
+  padding: 2.75rem 3rem;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 13px;
-  color: #1a1a1a;
-  line-height: 1.5;
+  color: #0f172a;
+  line-height: 1.55;
 
   @media (max-width: 600px) {
-    padding: 1.5rem 1.25rem;
+    padding: 1.75rem 1.25rem;
   }
 `
 
-const Header = styled.div`
-  text-align: center;
-  margin-bottom: 1.75rem;
-  .logo-name {
-    font-size: 1.3rem;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+const BrandHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+
+  .brand-name {
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
   }
-  .contact {
+  .brand-contact {
     font-size: 11px;
-    color: #6b7280;
+    color: #64748b;
+    margin-top: 3px;
+    line-height: 1.6;
+  }
+
+  .doc-type {
+    text-align: right;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: #cbd5e1;
+  }
+  .doc-ref {
+    text-align: right;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #475569;
     margin-top: 2px;
   }
 `
 
-const Divider = styled.hr`
-  border: none;
-  border-top: 1px solid #e5e7eb;
-  margin: 1rem 0 1.25rem;
-`
+const PartiesRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #eef0f2;
 
-const MetaRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-  gap: 1rem;
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+  }
 
-  .address-block {
+  .block-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #94a3b8;
+    margin-bottom: 0.4rem;
+  }
+  .block-body {
     font-size: 12.5px;
     line-height: 1.7;
   }
-  .date {
-    font-size: 12px;
-    color: #6b7280;
-    white-space: nowrap;
-  }
-`
-
-const RefBlock = styled.div`
-  margin-bottom: 1.25rem;
-  .label {
+  .name {
     font-weight: 700;
-    font-size: 13px;
-    text-decoration: underline;
-    margin-bottom: 2px;
+    font-size: 13.5px;
   }
-  .subject {
+  .dates {
+    margin-top: 0.75rem;
     font-size: 12px;
-    color: #6b7280;
+    color: #64748b;
+    .row {
+      display: flex;
+      justify-content: space-between;
+      max-width: 220px;
+      margin-top: 2px;
+    }
+    strong {
+      color: #0f172a;
+    }
   }
 `
 
-/* ── Due date banner ────────────────────────────────────── */
-const DueBanner = styled.div`
+const SubjectLine = styled.div`
+  margin-bottom: 1.25rem;
+  .subject {
+    font-size: 12.5px;
+    color: #334155;
+    font-style: italic;
+  }
+`
+
+/* ── Due date / status banner ───────────────────────────── */
+const Banner = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.6rem 1rem;
-  border-radius: 7px;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
   font-size: 12.5px;
   font-weight: 500;
   margin-bottom: 1.25rem;
 
   &.overdue {
     background: #fef2f2;
-    color: #ef4444;
+    color: #b91c1c;
     border: 1px solid #fecaca;
   }
   &.due-soon {
     background: #fffbeb;
-    color: #d97706;
+    color: #b45309;
     border: 1px solid #fde68a;
   }
   &.paid {
     background: #f0fdf4;
-    color: #059669;
+    color: #047857;
     border: 1px solid #bbf7d0;
   }
 `
 
 /* ── Table ──────────────────────────────────────────────── */
+const TableWrap = styled.div`
+  border: 1px solid #eef0f2;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 1.25rem;
   font-size: 12.5px;
 `
 const Th = styled.th`
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  padding: 7px 10px;
-  font-size: 11px;
+  background: #f8fafc;
+  border-bottom: 1px solid #eef0f2;
+  padding: 9px 12px;
+  font-size: 10.5px;
   font-weight: 700;
+  color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.04em;
   text-align: ${({ $right }) => ($right ? 'right' : 'left')};
 `
 const Td = styled.td`
-  border: 1px solid #e5e7eb;
-  padding: 6px 10px;
-  background: ${({ $alt }) => ($alt ? '#f9fafb' : '#fff')};
+  border-bottom: 1px solid #f1f3f5;
+  padding: 9px 12px;
+  background: ${({ $alt }) => ($alt ? '#fbfcfd' : '#fff')};
   text-align: ${({ $right }) => ($right ? 'right' : 'left')};
   vertical-align: top;
   .vat-note {
     font-size: 10px;
-    color: #9ca3af;
+    color: #94a3b8;
     display: block;
   }
 `
@@ -274,37 +345,31 @@ const TotalsWrap = styled.div`
   justify-content: flex-end;
   margin-bottom: 1.5rem;
 `
-const TotalsTable = styled.table`
-  border-collapse: collapse;
-  font-size: 12.5px;
-  min-width: 240px;
+const TotalsCard = styled.div`
+  min-width: 260px;
+  border: 1px solid #eef0f2;
+  border-radius: 10px;
+  overflow: hidden;
 `
-const TotalsRow = styled.tr`
-  td {
-    padding: 3px 8px;
-    &:last-child {
-      text-align: right;
-      min-width: 110px;
-    }
-    &:first-child {
-      color: #6b7280;
-      text-align: right;
-    }
-  }
+const TotalsRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  font-size: 12.5px;
+  color: #475569;
+
   &.grand {
-    border-top: 1px solid #e5e7eb;
-    td {
-      padding-top: 7px;
-      font-weight: 700;
-      color: #1a1a1a;
-      font-size: 13px;
-    }
+    background: #0f172a;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 0.75rem 1rem;
   }
 `
 
 const Notes = styled.p`
   font-size: 12px;
-  color: #6b7280;
+  color: #64748b;
   margin-bottom: 1.25rem;
   line-height: 1.6;
 `
@@ -318,18 +383,18 @@ const Sig = styled.div`
     margin-top: 2px;
   }
   .role {
-    color: #6b7280;
+    color: #64748b;
   }
 `
 
 const Footer = styled.div`
-  border-top: 1px solid #e5e7eb;
-  padding-top: 0.75rem;
-  margin-top: 2rem;
+  border-top: 1px solid #eef0f2;
+  padding-top: 0.85rem;
+  margin-top: 2.25rem;
   display: flex;
   justify-content: space-between;
   font-size: 10px;
-  color: #9ca3af;
+  color: #94a3b8;
   flex-wrap: wrap;
   gap: 0.25rem;
   .slogan {
@@ -341,7 +406,7 @@ const Footer = styled.div`
 const EtimsNotice = styled.div`
   background: #fffbeb;
   border: 1px solid #fde68a;
-  border-radius: 8px;
+  border-radius: 9px;
   padding: 0.9rem 1.1rem;
   font-size: 12.5px;
   color: #92400e;
@@ -386,10 +451,15 @@ const toBackendUrl = (path) =>
   path?.startsWith('http') ? path : `${API_ORIGIN}${path}`
 
 export const InvoiceViewModal = ({ open, onClose, invoice: doc, onSend }) => {
+  const { post } = useAuthedRequest()
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
   if (!open || !doc) return null
 
   const isUploaded = doc.type === 'uploaded'
   const dueStatus = getDueStatus(doc)
+  const accent = STATUS_ACCENT[doc.status] || STATUS_ACCENT.draft
 
   // For uploaded eTIMS invoices, the PDF is stored server-side — no client-gen PDF
   const canGeneratePDF = !isUploaded
@@ -408,22 +478,53 @@ export const InvoiceViewModal = ({ open, onClose, invoice: doc, onSend }) => {
     }
   }
 
+  // Save a copy to the portal without emailing — makes drafts downloadable
+  // by the client from CompanyDetails, not just invoices that get sent.
+  const handleSaveToPortal = async () => {
+    if (!canGeneratePDF || !post) return
+    setSaving(true)
+    try {
+      const blob = await pdf(pdfDoc).toBlob()
+      const base64 = await blobToBase64(blob)
+      await post(`/api/accounts/invoices/${doc._id}/store-pdf`, {
+        pdfBase64: base64,
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (err) {
+      console.error('Failed to save invoice PDF:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <Overlay onClick={(e) => e.target === e.currentTarget && onClose()}>
       <Sheet>
+        <AccentBar $color={accent} />
+
         {/* ── Top bar ── */}
         <TopBar>
           <div className="left">
             <span className="title">Invoice</span>
             <span className="ref">{doc.refNumber}</span>
             {isUploaded && <span className="badge-etims">eTIMS</span>}
-            {doc.status === 'paid' && (
-              <span className="badge-paid">
-                <CheckCircle size={11} /> Paid
-              </span>
-            )}
+            <span
+              className="status-pill"
+              $tint={`${accent}1a`}
+              $color={accent}
+            >
+              {doc.status === 'paid' && <CheckCircle size={11} />}
+              {doc.status}
+            </span>
           </div>
           <Actions>
+            {canGeneratePDF && doc.status === 'draft' && (
+              <Btn onClick={handleSaveToPortal} disabled={saving}>
+                <Save size={13} />
+                {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save to portal'}
+              </Btn>
+            )}
             {onSend && (
               <Btn onClick={handleSendWithPDF}>
                 <Send size={13} /> Send
@@ -466,40 +567,47 @@ export const InvoiceViewModal = ({ open, onClose, invoice: doc, onSend }) => {
 
         {/* ── Document preview ── */}
         <DocBody>
-          {/* Company header */}
-          <Header>
-            <div className="logo-name">ASHMIF OFFICE SOLUTIONS LTD</div>
-            <div className="contact">www.ashmif.com · Mombasa, Kenya</div>
-            <div className="contact">0758-839-829 · hello@ashmif.com</div>
-          </Header>
+          {/* Brand + doc type header */}
+          <BrandHeader>
+            <div>
+              <div className="brand-name">ASHMIF OFFICE SOLUTIONS LTD</div>
+              <div className="brand-contact">
+                www.ashmif.com · Mombasa, Kenya
+                <br />
+                0758-839-829 · hello@ashmif.com
+              </div>
+            </div>
+            <div>
+              <div className="doc-type">INVOICE</div>
+              <div className="doc-ref">{doc.refNumber}</div>
+            </div>
+          </BrandHeader>
 
-          <Divider />
-
-          {/* Due-date / paid banner */}
+          {/* Paid / overdue / due-soon banner */}
           {doc.status === 'paid' && (
-            <DueBanner className="paid">
+            <Banner className="paid">
               <CheckCircle size={14} />
               Payment received — this invoice is marked as paid
               {doc.paidAt && ` on ${fmtDate(doc.paidAt)}`}.
-            </DueBanner>
+            </Banner>
           )}
           {dueStatus === 'overdue' && (
-            <DueBanner className="overdue">
+            <Banner className="overdue">
               <AlertTriangle size={14} />
               This invoice was due on{' '}
               <strong style={{ marginLeft: 4 }}>{fmtDate(doc.dueDate)}</strong>
               &nbsp;and is now overdue.
-            </DueBanner>
+            </Banner>
           )}
           {dueStatus === 'due-soon' && (
-            <DueBanner className="due-soon">
+            <Banner className="due-soon">
               <AlertTriangle size={14} />
               Payment due on{' '}
               <strong style={{ marginLeft: 4 }}>
                 {fmtDate(doc.dueDate)}
               </strong>{' '}
               — within 7 days.
-            </DueBanner>
+            </Banner>
           )}
 
           {/* eTIMS notice for uploaded invoices */}
@@ -513,114 +621,113 @@ export const InvoiceViewModal = ({ open, onClose, invoice: doc, onSend }) => {
             </EtimsNotice>
           )}
 
-          {/* Date + client address */}
-          <MetaRow>
-            <div className="address-block">
-              {doc.clientName && <div>{doc.clientName}</div>}
-              {doc.clientAddress && <div>{doc.clientAddress}</div>}
-              {doc.attn && (
-                <div style={{ marginTop: 6 }}>
-                  <strong>Attn:</strong> {doc.attn}
+          {/* Bill To / Dates */}
+          <PartiesRow>
+            <div>
+              <div className="block-label">Bill To</div>
+              <div className="block-body">
+                {doc.clientName && <div className="name">{doc.clientName}</div>}
+                {doc.clientAddress && <div>{doc.clientAddress}</div>}
+                {doc.attn && (
+                  <div style={{ marginTop: 4 }}>
+                    <strong>Attn:</strong> {doc.attn}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="block-label">Details</div>
+              <div className="dates">
+                <div className="row">
+                  <span>Issue date</span>
+                  <strong>{fmtDate(doc.issueDate)}</strong>
                 </div>
-              )}
+                {doc.dueDate && (
+                  <div className="row">
+                    <span>Due date</span>
+                    <strong>{fmtDate(doc.dueDate)}</strong>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="date">{fmtDate(doc.issueDate)}</div>
-          </MetaRow>
+          </PartiesRow>
 
-          {/* Ref */}
-          <RefBlock>
-            <div className="label">REF: INVOICE</div>
-            <div className="subject">
-              {doc.subject || 'Please find the following invoice as agreed.'}
-            </div>
-          </RefBlock>
+          {doc.subject && (
+            <SubjectLine>
+              <div className="subject">{doc.subject}</div>
+            </SubjectLine>
+          )}
 
           {/* Line items */}
-          <Table>
-            <thead>
-              <tr>
-                <Th style={{ width: '5%' }}>NO</Th>
-                <Th>DESCRIPTION</Th>
-                <Th $right style={{ width: '9%' }}>
-                  QTY
-                </Th>
-                <Th $right style={{ width: '17%' }}>
-                  UNIT PRICE
-                </Th>
-                <Th $right style={{ width: '19%' }}>
-                  AMOUNT
-                </Th>
-              </tr>
-            </thead>
-            <tbody>
-              {doc.lineItems?.map((item, idx) => {
-                const qty = item.qty ?? null
-                const amount = (qty ?? 1) * item.unitPrice
-                return (
-                  <tr key={item._id || idx}>
-                    <Td $alt={idx % 2 === 1}>{idx + 1}.</Td>
-                    <Td $alt={idx % 2 === 1}>
-                      {item.description}
-                      {!item.taxable && (
-                        <span className="vat-note">(excl. VAT)</span>
-                      )}
-                    </Td>
-                    <Td $alt={idx % 2 === 1} $right>
-                      {qty ?? '—'}
-                    </Td>
-                    <Td $alt={idx % 2 === 1} $right>
-                      {fmt(item.unitPrice, doc.currency)}
-                    </Td>
-                    <Td $alt={idx % 2 === 1} $right>
-                      {fmt(amount, doc.currency)}
-                    </Td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </Table>
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <Th style={{ width: '5%' }}>NO</Th>
+                  <Th>DESCRIPTION</Th>
+                  <Th $right style={{ width: '9%' }}>
+                    QTY
+                  </Th>
+                  <Th $right style={{ width: '17%' }}>
+                    UNIT PRICE
+                  </Th>
+                  <Th $right style={{ width: '19%' }}>
+                    AMOUNT
+                  </Th>
+                </tr>
+              </thead>
+              <tbody>
+                {doc.lineItems?.map((item, idx) => {
+                  const qty = item.qty ?? null
+                  const amount = (qty ?? 1) * item.unitPrice
+                  return (
+                    <tr key={item._id || idx}>
+                      <Td $alt={idx % 2 === 1}>{idx + 1}.</Td>
+                      <Td $alt={idx % 2 === 1}>
+                        {item.description}
+                        {!item.taxable && (
+                          <span className="vat-note">(excl. VAT)</span>
+                        )}
+                      </Td>
+                      <Td $alt={idx % 2 === 1} $right>
+                        {qty ?? '—'}
+                      </Td>
+                      <Td $alt={idx % 2 === 1} $right>
+                        {fmt(item.unitPrice, doc.currency)}
+                      </Td>
+                      <Td $alt={idx % 2 === 1} $right>
+                        {fmt(amount, doc.currency)}
+                      </Td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </Table>
+          </TableWrap>
 
           {/* Totals */}
-          {!isUploaded && (
-            <TotalsWrap>
-              <TotalsTable>
-                <tbody>
+          <TotalsWrap>
+            <TotalsCard>
+              {!isUploaded && (
+                <>
                   <TotalsRow>
-                    <td>Subtotal</td>
-                    <td>{fmt(doc.subtotal, doc.currency)}</td>
+                    <span>Subtotal</span>
+                    <span>{fmt(doc.subtotal, doc.currency)}</span>
                   </TotalsRow>
                   <TotalsRow>
-                    <td>VAT ({doc.vatRate}%)</td>
-                    <td>{fmt(doc.vatAmount, doc.currency)}</td>
+                    <span>VAT ({doc.vatRate}%)</span>
+                    <span>{fmt(doc.vatAmount, doc.currency)}</span>
                   </TotalsRow>
-                  <TotalsRow className="grand">
-                    <td>TOTAL</td>
-                    <td>{fmt(doc.total, doc.currency)}</td>
-                  </TotalsRow>
-                </tbody>
-              </TotalsTable>
-            </TotalsWrap>
-          )}
+                </>
+              )}
+              <TotalsRow className="grand">
+                <span>TOTAL</span>
+                <span>{fmt(doc.total, doc.currency)}</span>
+              </TotalsRow>
+            </TotalsCard>
+          </TotalsWrap>
 
-          {isUploaded && (
-            <TotalsWrap>
-              <TotalsTable>
-                <tbody>
-                  <TotalsRow className="grand">
-                    <td>TOTAL</td>
-                    <td>{fmt(doc.total, doc.currency)}</td>
-                  </TotalsRow>
-                </tbody>
-              </TotalsTable>
-            </TotalsWrap>
-          )}
-
-          {/* Due date / notes */}
-          {doc.dueDate && (
-            <Notes>
-              Payment due: <strong>{fmtDate(doc.dueDate)}</strong>
-            </Notes>
-          )}
+          {/* Notes */}
           {doc.notes && <Notes>{doc.notes}</Notes>}
 
           {/* Signature — not shown for eTIMS uploads */}

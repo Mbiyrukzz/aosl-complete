@@ -11,6 +11,10 @@ export const CompaniesProvider = ({ children }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
+  const [myInvoices, setMyInvoices] = useState([])
+  const [myInvoicesLoading, setMyInvoicesLoading] = useState(false)
+  const [myInvoicesError, setMyInvoicesError] = useState(null)
+
   const isStaff = profile?.role === 'staff' || profile?.role === 'admin'
 
   const fetchCompanies = useCallback(
@@ -91,6 +95,38 @@ export const CompaniesProvider = ({ children }) => {
     [get],
   )
 
+  // Client-side: fetch the logged-in user's own company invoices
+  const fetchMyInvoices = useCallback(async () => {
+    if (!isReady) return
+    setMyInvoicesLoading(true)
+    setMyInvoicesError(null)
+    try {
+      const res = await get('/api/me/invoices')
+      setMyInvoices(res.invoices || [])
+    } catch (err) {
+      setMyInvoicesError(err.response?.data?.error || err.message)
+    } finally {
+      setMyInvoicesLoading(false)
+    }
+  }, [isReady, get])
+
+  // Get invoices for one company (staff/admin only — /accounts scope)
+const getCompanyInvoices = useCallback(
+  async (companyId) => {
+    const data = await get(`/api/accounts/invoices?companyId=${companyId}`)
+    return data.invoices || []
+  },
+  [get],
+)
+
+  useEffect(() => {
+    if (!user || isStaff) {
+      setMyInvoices([])
+      return
+    }
+    fetchMyInvoices()
+  }, [user, isStaff, fetchMyInvoices])
+
   const value = {
     companies,
     loading,
@@ -100,6 +136,11 @@ export const CompaniesProvider = ({ children }) => {
     updateCompany,
     deleteCompany,
     getCompanyDetail,
+    getCompanyInvoices,
+    myInvoices,
+    myInvoicesLoading,
+    myInvoicesError,
+    refetchMyInvoices: fetchMyInvoices,
   }
 
   return (

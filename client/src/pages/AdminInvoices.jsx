@@ -15,7 +15,7 @@ import { useAccounts } from '../hooks/useAccounts'
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
 import { InvoiceFormModal } from '../components/InvoiceFormModal'
 import { SendModal } from '../components/SendModal'
-import { InvoiceViewModal } from '../components/InvoiceViewModal' // ✅ new
+import { InvoiceViewModal } from '../components/InvoiceViewModal'
 import {
   PageWrapper,
   PageHead,
@@ -50,6 +50,7 @@ import {
   fmt,
 } from '../components/AccountsShared'
 import { X } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 
 /* ── PDF — for generated invoices sent with attachment ────── */
 import { pdf } from '@react-pdf/renderer'
@@ -92,6 +93,29 @@ const ActionGroup = styled.div`
   display: flex;
   gap: 0.4rem;
   justify-content: flex-end;
+`
+
+const ReopenBanner = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1rem;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 8px;
+  font-size: 0.85rem;
+`
+
+const ReopenBtn = styled.button`
+  background: none;
+  border: none;
+  color: #6366f1;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
 `
 
 /* ── Upload PDF Modal ─────────────────────────────────────── */
@@ -271,12 +295,34 @@ const AdminInvoices = () => {
   const [statusFilter, setStatusFilter] = useState('all')
   const [search, setSearch] = useState('')
 
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [recentInvoice, setRecentInvoice] = useState(null)
+
   const [showCreate, setShowCreate] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [viewTarget, setViewTarget] = useState(null)
   const [sendTarget, setSendTarget] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Opens the view modal and remembers the invoice so it can be
+  // reopened later via the banner without re-navigating.
+  const openView = (inv) => {
+    setViewTarget(inv)
+    setRecentInvoice(inv)
+  }
+
+  useEffect(() => {
+    const invoiceId = searchParams.get('invoiceId')
+    if (!invoiceId || loading || invoices.length === 0) return
+
+    const target = invoices.find((inv) => inv._id === invoiceId)
+    if (target) {
+      openView(target)
+      searchParams.delete('invoiceId')
+      setSearchParams(searchParams, { replace: true })
+    }
+  }, [searchParams, invoices, loading]) // eslint-disable-line
 
   useEffect(() => {
     if (!isReady) return
@@ -439,6 +485,17 @@ const AdminInvoices = () => {
         </HeadActions>
       </PageHead>
 
+      {recentInvoice && !viewTarget && (
+        <ReopenBanner>
+          <span>
+            Last viewed: <strong>{recentInvoice.refNumber}</strong>
+          </span>
+          <ReopenBtn type="button" onClick={() => setViewTarget(recentInvoice)}>
+            Reopen
+          </ReopenBtn>
+        </ReopenBanner>
+      )}
+
       <StatsGrid>
         {[
           { key: 'all', label: 'Total' },
@@ -554,7 +611,7 @@ const AdminInvoices = () => {
                     <Td $right>
                       <ActionGroup>
                         {/* ✅ View — always shown */}
-                        <SmallBtn onClick={() => setViewTarget(inv)}>
+                        <SmallBtn onClick={() => openView(inv)}>
                           <Eye size={12} /> View
                         </SmallBtn>
 

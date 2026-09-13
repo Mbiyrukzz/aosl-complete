@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useContext } from 'react'
 import styled from 'styled-components'
 import {
   Building2,
@@ -17,10 +17,13 @@ import {
   CheckCircle2,
   Pause,
   Archive,
+  FileText,
+  Download,
 } from 'lucide-react'
 
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
 import { useUser } from '../hooks/useUser'
+import { CompaniesContext } from '../contexts/CompaniesContext'
 
 /* -------------------------------------------------------------------------- */
 /*                                    STYLE                                   */
@@ -248,15 +251,6 @@ const CardGrid = styled.div`
   gap: 1rem;
 `
 
-const UserCard = styled.div`
-  background: ${({ theme }) => theme.colors.surface};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.radii.lg};
-  padding: 1rem;
-  display: flex;
-  gap: 0.9rem;
-`
-
 const Avatar = styled.div`
   width: 46px;
   height: 46px;
@@ -275,6 +269,15 @@ const Avatar = styled.div`
     height: 100%;
     object-fit: cover;
   }
+`
+
+const UserCard = styled.div`
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.lg};
+  padding: 1rem;
+  display: flex;
+  gap: 0.9rem;
 `
 
 const UserInfo = styled.div`
@@ -341,6 +344,87 @@ const PackageCard = styled.div`
 
 const IssueCard = styled(PackageCard)``
 
+const InvoiceCard = styled.div`
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.lg};
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  .left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .icon-wrap {
+    width: 38px;
+    height: 38px;
+    border-radius: ${({ theme }) => theme.radii.md};
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .ref {
+    font-weight: 600;
+    color: ${({ theme }) => theme.colors.text};
+    font-size: 0.92rem;
+  }
+
+  .meta {
+    font-size: 0.78rem;
+    color: ${({ theme }) => theme.colors.muted};
+    margin-top: 0.15rem;
+  }
+
+  .right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .amount {
+    font-weight: 700;
+    color: ${({ theme }) => theme.colors.text};
+    font-size: 0.95rem;
+  }
+`
+
+const DownloadLink = styled.a`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  background: ${({ theme }) => theme.colors.background};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+  color: ${({ theme }) => theme.colors.text};
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+    color: ${({ theme }) => theme.colors.primary};
+  }
+`
+
+const NoDownload = styled.span`
+  font-size: 0.76rem;
+  color: ${({ theme }) => theme.colors.muted};
+  font-style: italic;
+`
+
 const Empty = styled.div`
   padding: 2rem;
   text-align: center;
@@ -403,6 +487,18 @@ const ROLE_CONFIG = {
   },
 }
 
+const INVOICE_STATUS_CONFIG = {
+  draft: { bg: 'rgba(107,114,128,0.12)', color: '#6b7280', label: 'Draft' },
+  sent: { bg: 'rgba(59,130,246,0.12)', color: '#3b82f6', label: 'Sent' },
+  paid: { bg: 'rgba(16,185,129,0.12)', color: '#10b981', label: 'Paid' },
+  overdue: { bg: 'rgba(239,68,68,0.12)', color: '#ef4444', label: 'Overdue' },
+  cancelled: {
+    bg: 'rgba(107,114,128,0.15)',
+    color: '#6b7280',
+    label: 'Cancelled',
+  },
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                 COMPONENT                                  */
 /* -------------------------------------------------------------------------- */
@@ -410,6 +506,8 @@ const ROLE_CONFIG = {
 export default function CompanyDetails() {
   const { profile } = useUser()
   const { isReady, get } = useAuthedRequest()
+  const { getCompanyDetail, myInvoices, myInvoicesLoading } =
+    useContext(CompaniesContext)
 
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -425,11 +523,11 @@ export default function CompanyDetails() {
       setError(null)
 
       try {
-        const endpoint = isStaff
-          ? `/api/admin/companies/${profile.companyId}`
-          : '/api/companies/mine'
-
-        const res = await get(endpoint)
+        // Staff go through the shared CompaniesContext so the detail
+        // view stays in sync with anything the provider already cached.
+        const res = isStaff
+          ? await getCompanyDetail(profile.companyId)
+          : await get('/api/companies/mine')
 
         setData(res)
       } catch (err) {
@@ -440,7 +538,7 @@ export default function CompanyDetails() {
     }
 
     fetchCompany()
-  }, [isReady, profile, isStaff, get])
+  }, [isReady, profile, isStaff, get, getCompanyDetail])
 
   if (loading) {
     return <Loading>Loading company details…</Loading>
@@ -716,6 +814,72 @@ export default function CompanyDetails() {
               </PackageCard>
             ))}
           </div>
+        </Section>
+      )}
+
+      {/* INVOICES — clients only; staff manage these under /accounts/invoices */}
+      {!isStaff && (
+        <Section>
+          <SectionTitle>
+            Invoices {myInvoices.length > 0 && `(${myInvoices.length})`}
+          </SectionTitle>
+
+          {myInvoicesLoading ? (
+            <Empty>Loading invoices…</Empty>
+          ) : myInvoices.length === 0 ? (
+            <Empty>No invoices yet.</Empty>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.8rem' }}>
+              {myInvoices.map((inv) => {
+                const statusCfg =
+                  INVOICE_STATUS_CONFIG[inv.status] ||
+                  INVOICE_STATUS_CONFIG.draft
+
+                return (
+                  <InvoiceCard key={inv._id}>
+                    <div className="left">
+                      <div className="icon-wrap">
+                        <FileText size={18} />
+                      </div>
+                      <div>
+                        <div className="ref">{inv.refNumber}</div>
+                        <div className="meta">
+                          {inv.subject ? `${inv.subject} · ` : ''}
+                          Issued{' '}
+                          {new Date(inv.issueDate).toLocaleDateString('en-KE')}
+                          {inv.dueDate &&
+                            ` · Due ${new Date(inv.dueDate).toLocaleDateString('en-KE')}`}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="right">
+                      <div className="amount">
+                        {inv.currency}{' '}
+                        {Number(inv.total).toLocaleString('en-KE', {
+                          minimumFractionDigits: 2,
+                        })}
+                      </div>
+                      <RoleBadge $bg={statusCfg.bg} $color={statusCfg.color}>
+                        {statusCfg.label}
+                      </RoleBadge>
+                      {inv.downloadUrl ? (
+                        <DownloadLink
+                          href={inv.downloadUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <Download size={13} /> Download
+                        </DownloadLink>
+                      ) : (
+                        <NoDownload>Sent via email</NoDownload>
+                      )}
+                    </div>
+                  </InvoiceCard>
+                )
+              })}
+            </div>
+          )}
         </Section>
       )}
 

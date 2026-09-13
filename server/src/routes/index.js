@@ -85,6 +85,8 @@ import {
   updateInvoiceRoute,
   updateQuotationRoute,
   uploadInvoicePDFRoute,
+  myInvoicesRoute,
+  storeInvoicePdfRoute,
 } from './Accountsroutes.js'
 import {
   paymentsConfirmationRoute,
@@ -103,6 +105,7 @@ import {
   adminGetPaymentRoute,
   adminListPaymentsRoute,
 } from './adminPaymentsRoutes.js'
+
 
 const routes = [
   healthRoute,
@@ -190,6 +193,8 @@ const routes = [
   getInvoiceRoute,
   updateInvoiceRoute,
   sendInvoiceRoute,
+  myInvoicesRoute,
+  storeInvoicePdfRoute,
 
   paymentsValidationRoute,
   paymentsConfirmationRoute,
