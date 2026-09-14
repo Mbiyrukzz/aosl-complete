@@ -9,6 +9,7 @@ import {
   Trash2,
   Clock,
   MessageSquarePlus,
+  Lock,
 } from 'lucide-react'
 import Modal from '../components/Modal'
 import AdminProjectForm from '../components/AdminProjectForm'
@@ -62,6 +63,7 @@ const Heading = styled.div`
 const Actions = styled.div`
   display: flex;
   gap: 0.5rem;
+  align-items: center;
 `
 const Btn = styled.button`
   display: inline-flex;
@@ -75,11 +77,33 @@ const Btn = styled.button`
   border: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.surface};
   color: ${({ theme }) => theme.colors.text};
+  transition:
+    opacity 0.15s ease,
+    border-color 0.15s ease;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 `
 const DangerBtn = styled(Btn)`
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
   border-color: rgba(239, 68, 68, 0.25);
+
+  &:disabled {
+    background: ${({ theme }) => theme.colors.surface};
+    color: ${({ theme }) => theme.colors.muted};
+    border-color: ${({ theme }) => theme.colors.border};
+    opacity: 0.7;
+  }
+`
+const LockHint = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.76rem;
+  color: ${({ theme }) => theme.colors.muted};
 `
 const Panel = styled.div`
   background: ${({ theme }) => theme.colors.surface};
@@ -104,6 +128,7 @@ const ProgressBar = styled.div`
     height: 100%;
     background: #6366f1;
     width: ${({ $pct }) => $pct}%;
+    transition: width 0.25s ease;
   }
 `
 const StatusSelect = styled.select`
@@ -114,6 +139,11 @@ const StatusSelect = styled.select`
   color: ${({ theme }) => theme.colors.text};
   font-family: inherit;
   cursor: pointer;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 `
 const UpdateItem = styled.div`
   padding: 0.9rem 0;
@@ -164,6 +194,30 @@ const Empty = styled.div`
   color: ${({ theme }) => theme.colors.muted};
   font-size: 0.88rem;
 `
+const ErrorBanner = styled.div`
+  padding: 0.7rem 0.9rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: ${({ theme }) => theme.radii.md};
+  color: #ef4444;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+`
+
+/* ---------- Constants ---------- */
+
+const NON_DELETABLE_STATUSES = ['in_progress', 'review', 'completed']
+
+const STATUS_LABEL = {
+  not_started: 'not started',
+  in_progress: 'in progress',
+  review: 'in review',
+  completed: 'completed',
+  on_hold: 'on hold',
+  cancelled: 'cancelled',
+}
+
+/* ---------- Component ---------- */
 
 const AdminProjectDetail = () => {
   const { id } = useParams()
@@ -176,6 +230,7 @@ const AdminProjectDetail = () => {
   const [editOpen, setEditOpen] = useState(false)
   const [updateText, setUpdateText] = useState('')
   const [posting, setPosting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -205,8 +260,15 @@ const AdminProjectDetail = () => {
   const handleDelete = async () => {
     if (!confirm(`Delete project "${project.title}"? This cannot be undone.`))
       return
-    await deleteProject(id)
-    navigate(ROUTES.ADMIN_PROJECTS)
+    setDeleteError('')
+    try {
+      await deleteProject(id)
+      navigate(ROUTES.ADMIN_PROJECTS)
+    } catch (err) {
+      setDeleteError(
+        err.response?.data?.error || 'Failed to delete project.',
+      )
+    }
   }
 
   const handlePostUpdate = async (e) => {
@@ -234,12 +296,16 @@ const AdminProjectDetail = () => {
   }
 
   const companyId = project.companyId?._id || project.companyId
+  const canDelete = !NON_DELETABLE_STATUSES.includes(project.status)
+  const statusLabel = STATUS_LABEL[project.status] || project.status
 
   return (
     <Wrapper>
       <BackLink to={ROUTES.ADMIN_PROJECTS}>
         <ArrowLeft size={14} /> Back to Projects
       </BackLink>
+
+      {deleteError && <ErrorBanner>{deleteError}</ErrorBanner>}
 
       <PageHead>
         <Heading>
@@ -260,11 +326,27 @@ const AdminProjectDetail = () => {
           <Btn onClick={() => setEditOpen(true)}>
             <Edit2 size={14} /> Edit
           </Btn>
-          <DangerBtn onClick={handleDelete}>
+          <DangerBtn
+            onClick={handleDelete}
+            disabled={!canDelete}
+            title={
+              canDelete
+                ? undefined
+                : `Can't delete a project that's ${statusLabel}. Cancel or put it on hold first if it needs to be removed.`
+            }
+          >
             <Trash2 size={14} /> Delete
           </DangerBtn>
         </Actions>
       </PageHead>
+
+      {!canDelete && (
+        <LockHint style={{ marginTop: '-0.75rem', marginBottom: '1rem' }}>
+          <Lock size={11} />
+          This project is {statusLabel} and can't be deleted — set it to
+          on hold or cancelled first if you need to remove it.
+        </LockHint>
+      )}
 
       <Panel>
         {project.description && (
@@ -358,7 +440,7 @@ const AdminProjectDetail = () => {
             onChange={(e) => setUpdateText(e.target.value)}
             placeholder="Post a progress update for the client…"
           />
-          <PostBtn type="submit" disabled={posting}>
+          <PostBtn type="submit" disabled={posting || !updateText.trim()}>
             {posting ? 'Posting…' : 'Post'}
           </PostBtn>
         </AddUpdateForm>

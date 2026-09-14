@@ -2,6 +2,7 @@ import { Project } from '../models/Project.js'
 import { Company } from '../models/Company.js'
 import { User } from '../models/User.js'
 import { dispatch } from '../services/notifications.service.js'
+import { normalizePhone, sendSms } from '../services/smsService.js'
 
 /*
  * NOTE ON SOCKET ACCESS:
@@ -24,6 +25,25 @@ const emitToUsers = (io, uids = [], event, payload) => {
   uids.forEach((uid) => io.to(`user:${uid}`).emit(event, payload))
 }
 
+const STATUS_UPDATE_MESSAGE = {
+  not_started: (title) =>
+    `Your project "${title}" is officially on the calendar. Our team is gearing up — kickoff is right around the corner.`,
+  in_progress: (title) =>
+    `We're in motion! Work has officially kicked off on "${title}". We'll keep you posted as things take shape.`,
+  review: (title) =>
+    `"${title}" has moved into review — our team is giving it a final look before it comes back to you.`,
+  completed: (title) =>
+    `🎉 "${title}" is complete! Thank you for trusting us with this one — log in anytime to see the final details.`,
+  on_hold: (title) =>
+    `"${title}" has been paused for now. We'll reach out as soon as we're ready to pick it back up.`,
+  cancelled: (title) =>
+    `"${title}" has been cancelled. If this wasn't expected or you'd like to discuss it, we're just a message away.`,
+}
+
+const statusUpdateMessage = (title, status) =>
+  STATUS_UPDATE_MESSAGE[status]?.(title) ||
+  `Your project "${title}" is now ${status.replace('_', ' ')}.`
+
 // Notify every client user in a company via email + in-app notification,
 // and return their uids so the caller can also emit a realtime socket event.
 const notifyClients = async (
@@ -40,6 +60,7 @@ const notifyClients = async (
 
   const actionUrl = `/my-projects/${project._id}`
 
+  // Email/in-app — only meaningful for users who can actually log in
   await Promise.allSettled(
     clients.map((u) =>
       dispatch({
@@ -57,9 +78,34 @@ const notifyClients = async (
     ),
   )
 
+  // SMS — send to each client user's phone if any exist...
+  const phoneTargets = clients
+    .map((u) => u.phone?.trim())
+    .filter(Boolean)
+
+  // ...otherwise fall back to the company's own contact number, so
+  // companies with no portal user yet still get notified (mirrors
+  // createCompany's SMS-on-creation pattern in companies.controller.js)
+  if (phoneTargets.length === 0 && company.phone?.trim()) {
+    phoneTargets.push(company.phone.trim())
+  }
+
+  await Promise.allSettled(
+    phoneTargets.map(async (rawPhone) => {
+      const msisdn = normalizePhone(rawPhone)
+      if (!msisdn) {
+        console.warn(`Could not normalize phone "${rawPhone}" for company ${company._id} — SMS not sent`)
+        return
+      }
+      const result = await sendSms(msisdn, `${message} Log in to your client portal for details.`)
+      if (!result || result.status !== 'success') {
+        console.error(`SMS not delivered to ${msisdn} (company ${company._id})`)
+      }
+    }),
+  )
+
   return clients.map((u) => u.uid)
 }
-
 /* ── Staff/Admin ───────────────────────────────────────────── */
 
 export const createProject = async (req, res) => {
@@ -96,17 +142,23 @@ export const createProject = async (req, res) => {
       createdBy: req.user.uid,
     })
 
-    const clientUids = await notifyClients(
-      company,
-      project,
-      'project_created',
-      `Your project "${project.title}" has been started. Log in to your client portal to follow its progress.`,
-      'View project',
-    )
+  
+const clientUids = await notifyClients(
+  company,
+  project,
+  'project_created',
+  `We're excited to get started on "${project.title}"! Log in to your client portal to follow along as we bring it to life.`,
+  'View project',
+)
 
-    emitToUsers(getIO(req), clientUids, 'project:created', project.toObject())
+    const populatedProject = await Project.findById(project._id)
+  .populate('companyId', 'name tier')
+  .populate('assignedStaff', 'displayName email')
+  .lean()
 
-    res.status(201).json({ project: project.toObject() })
+    emitToUsers(getIO(req), clientUids, 'project:created', populatedProject)
+
+    res.status(201).json({ project: populatedProject })
   } catch (err) {
     console.error('createProject error:', err)
     res.status(500).json({ error: 'Failed to create project' })
@@ -178,26 +230,26 @@ export const updateProject = async (req, res) => {
 
     await project.save()
 
-    if (statusChanged) {
-      const company = await Company.findById(project.companyId).lean()
-      if (company) {
-        const clientUids = await notifyClients(
-          company,
-          project,
-          'project_status_changed',
-          `Your project "${project.title}" is now ${project.status.replace('_', ' ')}.`,
-          'View project',
-        )
-        emitToUsers(
-          getIO(req),
-          clientUids,
-          'project:updated',
-          project.toObject(),
-        )
-      }
-    }
+const populatedProject = await Project.findById(project._id)
+  .populate('companyId', 'name tier')
+  .populate('assignedStaff', 'displayName email')
+  .lean()
 
-    res.json({ project: project.toObject() })
+if (statusChanged) {
+  const company = await Company.findById(project.companyId).lean()
+  if (company) {
+    const clientUids = await notifyClients(
+      company,
+      project,
+      'project_status_changed',
+      statusUpdateMessage(project.title, project.status),
+      'View project',
+    )
+    emitToUsers(getIO(req), clientUids, 'project:updated', populatedProject)
+  }
+}
+res.json({ project: populatedProject })
+
   } catch (err) {
     console.error('updateProject error:', err)
     res.status(500).json({ error: 'Failed to update project' })
@@ -236,34 +288,49 @@ export const addProjectUpdate = async (req, res) => {
 
     await project.save()
 
-    const company = await Company.findById(project.companyId).lean()
-    if (company) {
-      const clientUids = await notifyClients(
-        company,
-        project,
-        'project_commented',
-        `New update on "${project.title}": ${text.trim()}`,
-        'View update',
-      )
-      emitToUsers(
-        getIO(req),
-        clientUids,
-        'project:commented',
-        project.toObject(),
-      )
-    }
+ // addProjectUpdate — after project.save()
+const populatedProject = await Project.findById(project._id)
+  .populate('companyId', 'name tier')
+  .populate('assignedStaff', 'displayName email')
+  .lean()
 
-    res.json({ project: project.toObject() })
+const company = await Company.findById(project.companyId).lean()
+if (company) {
+  const message = status
+    ? statusUpdateMessage(project.title, status)
+    : `New update on "${project.title}": ${text.trim()}`
+  const clientUids = await notifyClients(
+    company, project, status ? 'project_status_changed' : 'project_commented',
+    message, status ? 'View project' : 'View update',
+  )
+  emitToUsers(
+    getIO(req),
+    clientUids,
+    status ? 'project:updated' : 'project:commented',
+    populatedProject,
+  )
+}
+res.json({ project: populatedProject })
   } catch (err) {
     console.error('addProjectUpdate error:', err)
     res.status(500).json({ error: 'Failed to add project update' })
   }
 }
 
+const NON_DELETABLE_STATUSES = ['in_progress', 'review', 'completed']
+
 export const deleteProject = async (req, res) => {
   try {
-    const project = await Project.findByIdAndDelete(req.params.id)
+    const project = await Project.findById(req.params.id).lean()
     if (!project) return res.status(404).json({ error: 'Project not found' })
+
+    if (NON_DELETABLE_STATUSES.includes(project.status)) {
+      return res.status(400).json({
+        error: `Cannot delete a project that's ${project.status.replace('_', ' ')}. Cancel or put it on hold first if it needs to be removed from active work.`,
+      })
+    }
+
+    await Project.findByIdAndDelete(req.params.id)
     res.json({ success: true })
   } catch (err) {
     console.error('deleteProject error:', err)
