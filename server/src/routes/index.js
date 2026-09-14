@@ -87,6 +87,10 @@ import {
   uploadInvoicePDFRoute,
   myInvoicesRoute,
   storeInvoicePdfRoute,
+  markInvoicePaidRoute,
+  getInvoiceReceiptRoute,
+  getReceiptRoute,
+  storeReceiptPDFRoute,
 } from './Accountsroutes.js'
 import {
   paymentsConfirmationRoute,
@@ -196,6 +200,10 @@ const routes = [
   sendInvoiceRoute,
   myInvoicesRoute,
   storeInvoicePdfRoute,
+  markInvoicePaidRoute,
+  getInvoiceReceiptRoute,
+  getReceiptRoute,
+  storeReceiptPDFRoute,
 
   paymentsValidationRoute,
   paymentsConfirmationRoute,

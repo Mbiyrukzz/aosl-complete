@@ -199,6 +199,33 @@ export const AccountsProvider = ({ children, scope = 'stats' }) => {
   )
 
   /**
+   * Marks an invoice paid and returns its freshly-created (or existing)
+   * Receipt in the same round trip, so the UI can show it immediately.
+   */
+  const markInvoicePaid = useCallback(
+    async (id, payload = {}) => {
+      const data = await post(`${API_BASE}/invoices/${id}/mark-paid`, payload)
+      setInvoices((prev) =>
+        prev.map((inv) => (inv._id === id ? data.invoice : inv)),
+      )
+      return data // { invoice, receipt }
+    },
+    [post],
+  )
+
+  /**
+   * Fetch the receipt already issued for a paid invoice — used to
+   * reopen the receipt view without regenerating anything.
+   */
+  const fetchInvoiceReceipt = useCallback(
+    async (id) => {
+      const data = await get(`${API_BASE}/invoices/${id}/receipt`)
+      return data.receipt
+    },
+    [get],
+  )
+
+  /**
    * Upload an eTIMS PDF invoice.
    */
   const uploadInvoicePDF = useCallback(
@@ -247,6 +274,8 @@ export const AccountsProvider = ({ children, scope = 'stats' }) => {
         updateInvoice,
         sendInvoice,
         uploadInvoicePDF,
+        markInvoicePaid,
+        fetchInvoiceReceipt,
 
         // Stats
         fetchStats,

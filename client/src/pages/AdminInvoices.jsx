@@ -10,12 +10,14 @@ import {
   RefreshCw,
   CheckCircle,
   Eye,
+  FileCheck,
 } from 'lucide-react'
 import { useAccounts } from '../hooks/useAccounts'
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
 import { InvoiceFormModal } from '../components/InvoiceFormModal'
 import { SendModal } from '../components/SendModal'
 import { InvoiceViewModal } from '../components/InvoiceViewModal'
+import { ReceiptViewModal } from '../components/ReceiptViewModal'
 import {
   PageWrapper,
   PageHead,
@@ -289,6 +291,8 @@ const AdminInvoices = () => {
     updateInvoice,
     sendInvoice,
     uploadInvoicePDF,
+    markInvoicePaid,
+    fetchInvoiceReceipt,
   } = useAccounts()
 
   const [companies, setCompanies] = useState([])
@@ -304,6 +308,10 @@ const AdminInvoices = () => {
   const [viewTarget, setViewTarget] = useState(null)
   const [sendTarget, setSendTarget] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+
+ 
+  const [receiptTarget, setReceiptTarget] = useState(null)
+  const [loadingReceiptFor, setLoadingReceiptFor] = useState(null)
 
   // Opens the view modal and remembers the invoice so it can be
   // reopened later via the banner without re-navigating.
@@ -421,15 +429,45 @@ const AdminInvoices = () => {
     }
   }
 
-  const markPaid = async (id) => {
+  /**
+   * Marks an invoice paid and immediately shows the resulting receipt.
+   * A couple of lightweight prompts capture optional payment details —
+   * swap these for a proper modal form later if you want richer input.
+   */
+  const markPaid = async (inv) => {
     if (!confirm('Mark this invoice as paid?')) return
+    const paymentMethod = prompt(
+      'Payment method (e.g. M-Pesa, Bank Transfer, Cash) — optional:',
+      '',
+    )
+    if (paymentMethod === null) return // cancelled
+    const paymentReference = prompt(
+      'Payment reference (e.g. M-Pesa code) — optional:',
+      '',
+    )
+    if (paymentReference === null) return // cancelled
+
     try {
-      await updateInvoice(id, {
-        status: 'paid',
-        paidAt: new Date().toISOString(),
+      const { receipt } = await markInvoicePaid(inv._id, {
+        paymentMethod: paymentMethod.trim(),
+        paymentReference: paymentReference.trim(),
       })
+      setReceiptTarget(receipt)
     } catch (err) {
       alert(err.response?.data?.error || err.message)
+    }
+  }
+
+  /** Reopen an existing receipt for an already-paid invoice */
+  const openReceipt = async (inv) => {
+    setLoadingReceiptFor(inv._id)
+    try {
+      const receipt = await fetchInvoiceReceipt(inv._id)
+      setReceiptTarget(receipt)
+    } catch (err) {
+      alert(err.response?.data?.error || 'Receipt not found for this invoice')
+    } finally {
+      setLoadingReceiptFor(null)
     }
   }
 
@@ -623,11 +661,25 @@ const AdminInvoices = () => {
                           inv.status !== 'cancelled' && (
                             <SmallBtn
                               $success
-                              onClick={() => markPaid(inv._id)}
+                              onClick={() => markPaid(inv)}
                             >
                               <CheckCircle size={12} /> Paid
                             </SmallBtn>
                           )}
+
+                        {/* ✅ Receipt — shown once the invoice is paid */}
+                        {inv.status === 'paid' && (
+                          <SmallBtn
+                            $success
+                            onClick={() => openReceipt(inv)}
+                            disabled={loadingReceiptFor === inv._id}
+                          >
+                            <FileCheck size={12} />
+                            {loadingReceiptFor === inv._id
+                              ? 'Loading…'
+                              : 'Receipt'}
+                          </SmallBtn>
+                        )}
 
                         {inv.type !== 'uploaded' && (
                           <SmallBtn onClick={() => setEditTarget(inv)}>
@@ -652,6 +704,13 @@ const AdminInvoices = () => {
         onClose={() => setViewTarget(null)}
         invoice={viewTarget}
         onSend={handleViewSend}
+      />
+
+      {/* Receipt modal — shown right after marking paid, or reopened later */}
+      <ReceiptViewModal
+        open={!!receiptTarget}
+        onClose={() => setReceiptTarget(null)}
+        receipt={receiptTarget}
       />
 
       <InvoiceFormModal

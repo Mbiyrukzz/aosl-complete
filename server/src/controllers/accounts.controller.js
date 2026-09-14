@@ -1,5 +1,6 @@
 import { Quotation } from '../models/Quotation.js'
 import { Invoice } from '../models/Invoice.js'
+import { Receipt } from '../models/Receipt.js'
 import { Company } from '../models/Company.js'
 import { User } from '../models/User.js'
 import { sendEmail } from '../services/email.service.js'
@@ -34,21 +35,21 @@ const populateCompany = (q) =>
   q.populate('companyId', 'name tier primaryContactEmail address')
 
 /**
- * Persist a base64-encoded PDF to disk under uploads/invoices/ and return
- * the relative URL to store as attachmentUrl. Used for both "generated"
- * invoices (client-rendered PDF, sent here as base64) and re-saves.
+ * Persist a base64-encoded PDF to disk under uploads/<folder>/ and return
+ * the relative URL to store as attachmentUrl. Used for invoices and,
+ * now, receipts — pass folder='receipts' for the latter.
  */
-const persistPdf = (refNumber, pdfBase64) => {
+const persistPdf = (refNumber, pdfBase64, folder = 'invoices') => {
   if (!pdfBase64) return null
 
-  const dir = path.join(process.cwd(), 'uploads', 'invoices')
+  const dir = path.join(process.cwd(), 'uploads', folder)
   fs.mkdirSync(dir, { recursive: true })
 
   const filename = `${refNumber}-generated.pdf`
   const filePath = path.join(dir, filename)
   fs.writeFileSync(filePath, Buffer.from(pdfBase64, 'base64'))
 
-  return `/uploads/invoices/${filename}`
+  return `/uploads/${folder}/${filename}`
 }
 
 /* ─── QUOTATIONS ──────────────────────────────────────────── */
@@ -356,7 +357,7 @@ export const createInvoice = async (req, res) => {
       notes = '',
       issueDate,
       dueDate,
-      signatoryName, 
+      signatoryName,
       signatoryTitle,
     } = req.body
 
@@ -436,7 +437,7 @@ export const updateInvoice = async (req, res) => {
       'paidAt',
       'etimsRef',
       'signatoryName',
-  'signatoryTitle',
+      'signatoryTitle',
     ]
     for (const k of allowed) {
       if (req.body[k] !== undefined) inv[k] = req.body[k]
@@ -522,7 +523,7 @@ export const storeInvoicePDF = async (req, res) => {
     const inv = await Invoice.findById(req.params.id)
     if (!inv) return res.status(404).json({ error: 'Invoice not found' })
 
-    const attachmentUrl = persistPdf(inv.refNumber, pdfBase64)
+    const attachmentUrl = persistPdf(inv.refNumber, pdfBase64, 'invoices')
     inv.attachmentUrl = attachmentUrl
     await inv.save()
 
@@ -589,7 +590,7 @@ export const sendInvoice = async (req, res) => {
       sentTo: to,
     }
     if (pdfBase64 && inv.type === 'generated') {
-      update.attachmentUrl = persistPdf(inv.refNumber, pdfBase64)
+      update.attachmentUrl = persistPdf(inv.refNumber, pdfBase64, 'invoices')
     }
 
     await Invoice.findByIdAndUpdate(inv._id, update)
@@ -598,6 +599,133 @@ export const sendInvoice = async (req, res) => {
   } catch (err) {
     console.error('sendInvoice error:', err)
     res.status(500).json({ error: 'Failed to send invoice' })
+  }
+}
+
+/* ─── MARK INVOICE PAID → GENERATE RECEIPT ───────────────── */
+
+/**
+ * Marks an invoice as paid and creates its Receipt in one step.
+ * Idempotent: if a receipt already exists for this invoice (e.g. the
+ * request retried after a network blip), the existing one is returned
+ * instead of erroring or duplicating it.
+ */
+export const markInvoicePaid = async (req, res) => {
+  try {
+    const inv = await Invoice.findById(req.params.id)
+    if (!inv) return res.status(404).json({ error: 'Invoice not found' })
+    if (inv.status === 'cancelled') {
+      return res
+        .status(400)
+        .json({ error: 'Cannot mark a cancelled invoice as paid' })
+    }
+
+    const { paymentMethod = '', paymentReference = '', paidAt } = req.body
+    const paidAtDate = paidAt ? new Date(paidAt) : new Date()
+
+    // Idempotency — one receipt per invoice
+    const existing = await Receipt.findOne({ invoiceId: inv._id }).lean()
+    if (existing) {
+      if (inv.status !== 'paid') {
+        inv.status = 'paid'
+        inv.paidAt = existing.paidAt
+        await inv.save()
+      }
+      return res.json({ invoice: inv.toObject(), receipt: existing })
+    }
+
+    const signer = await User.findOne({ uid: req.user.uid }).lean()
+    const refNumber = await Receipt.generateRefNumber()
+
+    const receipt = await Receipt.create({
+      refNumber,
+      invoiceId: inv._id,
+      invoiceRefNumber: inv.refNumber,
+      invoiceType: inv.type,
+      companyId: inv.companyId,
+      clientName: inv.clientName,
+      clientEmail: inv.clientEmail,
+      clientAddress: inv.clientAddress,
+      currency: inv.currency,
+      vatRate: inv.vatRate,
+      lineItems: inv.lineItems,
+      subtotal: inv.subtotal,
+      vatAmount: inv.vatAmount,
+      total: inv.total,
+      amountPaid: inv.total,
+      paymentMethod,
+      paymentReference,
+      paidAt: paidAtDate,
+      signatoryName: inv.signatoryName || signer?.displayName || '',
+      signatoryTitle: inv.signatoryTitle || signer?.jobTitle || '',
+      createdBy: req.user.uid,
+    })
+
+    inv.status = 'paid'
+    inv.paidAt = paidAtDate
+    await inv.save()
+
+    res.status(201).json({ invoice: inv.toObject(), receipt: receipt.toObject() })
+  } catch (err) {
+    // A duplicate-key error on invoiceId means a receipt was created by a
+    // concurrent request — fetch and return that one instead of failing.
+    if (err.code === 11000) {
+      const receipt = await Receipt.findOne({ invoiceId: req.params.id }).lean()
+      const inv = await Invoice.findById(req.params.id).lean()
+      if (receipt && inv) return res.json({ invoice: inv, receipt })
+    }
+    console.error('markInvoicePaid error:', err)
+    res.status(500).json({ error: 'Failed to mark invoice as paid' })
+  }
+}
+
+/* ─── RECEIPTS ────────────────────────────────────────────── */
+
+export const getInvoiceReceipt = async (req, res) => {
+  try {
+    const receipt = await Receipt.findOne({ invoiceId: req.params.id }).lean()
+    if (!receipt)
+      return res.status(404).json({ error: 'No receipt for this invoice' })
+    res.json({ receipt })
+  } catch (err) {
+    console.error('getInvoiceReceipt error:', err)
+    res.status(500).json({ error: 'Failed to fetch receipt' })
+  }
+}
+
+export const getReceipt = async (req, res) => {
+  try {
+    const receipt = await Receipt.findById(req.params.id).lean()
+    if (!receipt) return res.status(404).json({ error: 'Receipt not found' })
+    res.json({ receipt })
+  } catch (err) {
+    console.error('getReceipt error:', err)
+    res.status(500).json({ error: 'Failed to fetch receipt' })
+  }
+}
+
+/**
+ * Persist a client-rendered receipt PDF to disk, same pattern as
+ * storeInvoicePDF, so it becomes downloadable from the client portal.
+ */
+export const storeReceiptPDF = async (req, res) => {
+  try {
+    const { pdfBase64 } = req.body
+    if (!pdfBase64) {
+      return res.status(400).json({ error: 'pdfBase64 is required' })
+    }
+
+    const receipt = await Receipt.findById(req.params.id)
+    if (!receipt) return res.status(404).json({ error: 'Receipt not found' })
+
+    const attachmentUrl = persistPdf(receipt.refNumber, pdfBase64, 'receipts')
+    receipt.attachmentUrl = attachmentUrl
+    await receipt.save()
+
+    res.json({ receipt: receipt.toObject() })
+  } catch (err) {
+    console.error('storeReceiptPDF error:', err)
+    res.status(500).json({ error: 'Failed to store receipt PDF' })
   }
 }
 

@@ -19,6 +19,10 @@ import {
   getAccountsStats,
   listMyInvoices,
   storeInvoicePDF,
+  markInvoicePaid,
+  getInvoiceReceipt,
+  getReceipt,
+  storeReceiptPDF,
 } from '../controllers/accounts.controller.js'
 
 /* ── Quotations ────────────────────────────────────────────── */
@@ -102,8 +106,7 @@ export const updateInvoiceRoute = {
   handler: updateInvoice,
 }
 
-// ✅ Fix: route MUST be registered BEFORE /:id routes so Express
-//    doesn't try to find an invoice with id "upload"
+
 export const uploadInvoicePDFRoute = {
   path: '/accounts/invoices/upload',
   method: 'post',
@@ -145,3 +148,31 @@ export const storeInvoicePdfRoute = {
   middleware: [verifyFirebaseToken, isStaff],
   handler: storeInvoicePDF,
 }
+
+export const   markInvoicePaidRoute = {
+  path: '/accounts/invoices/:id/mark-paid',
+  method: 'post',
+  middleware: [verifyFirebaseToken, isStaff],
+  handler: markInvoicePaid,
+}
+
+export const getInvoiceReceiptRoute = {
+  path: '/accounts/invoices/:id/receipt',
+  method: 'get',
+  middleware: [verifyFirebaseToken, isStaff],
+  handler: getInvoiceReceipt,
+}
+
+export const getReceiptRoute = {
+  path: '/accounts/invoices/:id/receipt',
+  method: 'get',
+  middleware: [verifyFirebaseToken, isStaff],
+  handler: getReceipt,
+}
+
+export const storeReceiptPDFRoute = {
+  path: '/accounts/invoices/:id/store-receipt',
+  method: 'post',
+  middleware: [verifyFirebaseToken, isStaff],
+  handler: storeReceiptPDF,
+} 
