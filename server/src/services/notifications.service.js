@@ -1,44 +1,250 @@
+import { sendEmail } from './email.service.js'
 import { Notification } from '../models/Notification.js'
+import { User } from '../models/User.js'
+import {
+  reminderEmail,
+  invoiceReminderEmail,
+  packageExpiryEmail,
+  domainRenewalEmail,
+  issueCommentedEmail,
+  issueCreatedEmail,
+} from './reminder-templates.js'
+import {
+  projectCreatedEmail,
+  projectStatusUpdateEmail,
+  projectCommentEmail,
+} from './project-templates.js'
 
-export const createNotification = async (io, payload) => {
-  if (payload.recipient === payload.actorUid) {
-    console.log(`⏭️  Skipping self-notification for ${payload.recipient}`)
-    return null
-  }
-
-  try {
-    const notification = await Notification.create(payload)
-    if (io) {
-      console.log(`📨 Emitting notification:new to user:${payload.recipient}`)
-      const sockets = await io.in(`user:${payload.recipient}`).fetchSockets()
-      console.log(`   ${sockets.length} socket(s) in that room`)
-      io.to(`user:${payload.recipient}`).emit(
-        'notification:new',
-        notification.toObject(),
-      )
-    }
-    return notification
-  } catch (err) {
-    console.error('createNotification error:', err)
-    return null
-  }
+const TEMPLATE_BY_CATEGORY = {
+  invoice: invoiceReminderEmail,
+  package_expiry: packageExpiryEmail,
+  domain_renewal: domainRenewalEmail,
+  general: reminderEmail,
+  reminder: reminderEmail,
+  issue_created: issueCreatedEmail,
+  issue_commented: issueCommentedEmail,
+  project_created: projectCreatedEmail,
+  project_status_changed: projectStatusUpdateEmail,
+  project_commented: projectCommentEmail,
 }
 
-export const createNotificationsBulk = async (io, payloads) => {
-  // Filter out self-notifications
-  const filtered = payloads.filter((p) => p.recipient !== p.actorUid)
-  if (filtered.length === 0) return []
+// Map reminder categories → notification types
+const TYPE_BY_CATEGORY = {
+  invoice: 'invoice',
+  package_expiry: 'package_expiry',
+  domain_renewal: 'domain_renewal',
+  support: 'general',
+  general: 'reminder',
+  issue_created: 'issue_created',
+  issue_commented: 'issue_commented',
+  project_created: 'project_created',
+  project_status_changed: 'project_status_changed',
+  project_commented: 'project_commented',
+}
 
-  try {
-    const docs = await Notification.insertMany(filtered)
-    if (io) {
-      docs.forEach((doc) => {
-        io.to(`user:${doc.recipient}`).emit('notification:new', doc.toObject())
+/**
+ * Dispatch a notification to a user across enabled channels.
+ * Writes a Notification record AND sends via email/whatsapp as configured.
+ *
+ * @param {Object} params
+ * @param {String} params.userId - target user (Mongo _id of the User doc)
+ * @param {String} params.title
+ * @param {String} params.message
+ * @param {String} [params.category='general']
+ * @param {Object} [params.channels] - { email, whatsapp, inApp }
+ * @param {String} [params.reminderId]
+ * @param {String} [params.actionUrl]
+ * @param {String} [params.actionLabel]
+ */
+export const dispatch = async ({
+  userId,
+  title,
+  message,
+  category = 'general',
+  channels = { email: true, whatsapp: false, inApp: true },
+  reminderId = null,
+  actionUrl = '',
+  actionLabel = '',
+  extraVars = {},
+}) => {
+  const user = await User.findById(userId).lean()
+  if (!user) throw new Error(`User ${userId} not found`)
+
+  const userPrefs = user.notificationPrefs || {}
+  const finalChannels = {
+    email: channels.email && userPrefs.emailIssueUpdates !== false,
+    whatsapp: channels.whatsapp,
+    inApp: channels.inApp !== false, // default true
+  }
+
+  // Create the Notification record (in-app feed entry)
+  const notification = await Notification.create({
+    recipient: user.uid, // existing field — Firebase UID, not Mongo ID
+    type: TYPE_BY_CATEGORY[category] || 'reminder',
+    title,
+    message,
+    actionUrl,
+    actionLabel,
+    reminderId,
+    delivery: {
+      email: { attempted: false, delivered: false, error: '' },
+      whatsapp: { attempted: false, delivered: false, error: '' },
+    },
+    read: false,
+  })
+
+  // Email channel
+  if (finalChannels.email && user.email) {
+    const builder = TEMPLATE_BY_CATEGORY[category] || reminderEmail
+    try {
+      const html = builder({
+        name: user.displayName || 'there',
+        title,
+        message,
+        actionUrl,
+        actionLabel,
+
+        ...extraVars,
       })
+      await sendEmail({
+        to: user.email,
+        subject: title,
+        html,
+        text: `${title}\n\n${message}${
+          actionUrl ? `\n\n${actionLabel || 'Open'}: ${actionUrl}` : ''
+        }`,
+      })
+      notification.delivery.email = {
+        attempted: true,
+        delivered: true,
+        error: '',
+      }
+    } catch (err) {
+      console.error('Email dispatch failed:', err.message)
+      notification.delivery.email = {
+        attempted: true,
+        delivered: false,
+        error: err.message,
+      }
     }
-    return docs
-  } catch (err) {
-    console.error('createNotificationsBulk error:', err)
+  }
+
+  // WhatsApp channel — stubbed
+  if (finalChannels.whatsapp && user.phone) {
+    try {
+      await sendWhatsApp({ to: user.phone, body: `${title}\n\n${message}` })
+      notification.delivery.whatsapp = {
+        attempted: true,
+        delivered: true,
+        error: '',
+      }
+    } catch (err) {
+      notification.delivery.whatsapp = {
+        attempted: true,
+        delivered: false,
+        error: err.message,
+      }
+    }
+  }
+
+  await notification.save()
+  return notification
+}
+
+
+export const createNotification = async (io, data) => {
+  const {
+    recipient,
+    type,
+    issueId = null,
+    issueTitle = '',
+    actorUid = null,
+    actorEmail = '',
+    message,
+  } = data
+
+  const notification = await Notification.create({
+    recipient,
+    type,
+    issueId,
+    issueTitle,
+    actorUid,
+    actorEmail,
+    message,
+    read: false,
+  })
+
+  if (io) {
+    io.to(`user:${recipient}`).emit('notification:new', notification.toObject())
+  }
+
+  return notification
+}
+
+export const createNotificationsBulk = async (io, dataArray = []) => {
+  if (!dataArray.length) return []
+
+  const docs = dataArray.map((d) => ({
+    recipient: d.recipient,
+    type: d.type,
+    issueId: d.issueId || null,
+    issueTitle: d.issueTitle || '',
+    actorUid: d.actorUid || null,
+    actorEmail: d.actorEmail || '',
+    message: d.message,
+    read: false,
+  }))
+
+  const created = await Notification.insertMany(docs)
+
+  if (io) {
+    created.forEach((n) => {
+      io.to(`user:${n.recipient}`).emit('notification:new', n.toObject())
+    })
+  }
+
+  return created
+}
+
+
+export const dispatchReminderToCompany = async (reminder) => {
+  let recipients = []
+
+  if (reminder.userId) {
+    // Targeted at one user
+    const user = await User.findById(reminder.userId).lean()
+    if (user) recipients = [user]
+  } else {
+    // Fan out to all client users in the company
+    recipients = await User.find({
+      companyId: reminder.companyId,
+      role: 'client',
+    }).lean()
+  }
+
+  if (recipients.length === 0) {
+    console.warn(
+      `[reminder] No recipients for reminder ${reminder._id} (company ${reminder.companyId})`,
+    )
     return []
   }
+
+  const results = await Promise.allSettled(
+    recipients.map((user) =>
+      dispatch({
+        userId: user._id,
+        title: reminder.title,
+        message: reminder.message,
+        category: reminder.category,
+        channels: reminder.channels,
+        reminderId: reminder._id,
+      }),
+    ),
+  )
+
+  return results.map((r) => (r.status === 'fulfilled' ? r.value : null))
+}
+
+const sendWhatsApp = async (_params) => {
+  throw new Error('WhatsApp not configured yet')
 }

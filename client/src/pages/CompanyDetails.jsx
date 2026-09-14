@@ -1,4 +1,5 @@
 import { useEffect, useState, useContext } from 'react'
+import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import {
   Building2,
@@ -19,11 +20,16 @@ import {
   Archive,
   FileText,
   Download,
+  FolderKanban,
+  Clock,
+  ArrowUpRight,
 } from 'lucide-react'
 
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
 import { useUser } from '../hooks/useUser'
 import { CompaniesContext } from '../contexts/CompaniesContext'
+import { useProjects } from '../hooks/useProjects'
+import { buildMyProjectPath } from '../constants/routes'
 
 /* -------------------------------------------------------------------------- */
 /*                                    STYLE                                   */
@@ -344,6 +350,72 @@ const PackageCard = styled.div`
 
 const IssueCard = styled(PackageCard)``
 
+const ProjectCard = styled(Link)`
+  display: block;
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.lg};
+  padding: 1rem 1.1rem;
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
+
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .name {
+    color: ${({ theme }) => theme.colors.text};
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+`
+
+const ProjectMeta = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: ${({ theme }) => theme.colors.muted};
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+`
+
+const ProjectProgressBar = styled.div`
+  margin-top: 0.75rem;
+  height: 6px;
+  border-radius: 999px;
+  background: ${({ theme }) => theme.colors.border};
+  overflow: hidden;
+
+  div {
+    height: 100%;
+    background: #6366f1;
+    width: ${({ $pct }) => $pct}%;
+  }
+`
+
+const StatusPill = styled.span`
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(99, 102, 241, 0.12);
+  color: #6366f1;
+`
+
 const InvoiceCard = styled.div`
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -499,6 +571,15 @@ const INVOICE_STATUS_CONFIG = {
   },
 }
 
+const PROJECT_STATUS_LABEL = {
+  not_started: 'Not started',
+  in_progress: 'In progress',
+  review: 'In review',
+  completed: 'Completed',
+  on_hold: 'On hold',
+  cancelled: 'Cancelled',
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                 COMPONENT                                  */
 /* -------------------------------------------------------------------------- */
@@ -508,6 +589,7 @@ export default function CompanyDetails() {
   const { isReady, get } = useAuthedRequest()
   const { getCompanyDetail, myInvoices, myInvoicesLoading } =
     useContext(CompaniesContext)
+  const { myProjects, myProjectsLoading } = useProjects()
 
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -631,6 +713,52 @@ export default function CompanyDetails() {
           </StatCard>
         </Stats>
       </Hero>
+
+      {/* PROJECTS — the main thing a client wants to check in on */}
+      <Section style={{ marginTop: 0, marginBottom: '1.5rem' }}>
+        <SectionTitle>
+          <FolderKanban
+            size={17}
+            style={{ verticalAlign: 'middle', marginRight: 8 }}
+          />
+          Projects {myProjects.length > 0 && `(${myProjects.length})`}
+        </SectionTitle>
+
+        {myProjectsLoading ? (
+          <Empty>Loading your projects…</Empty>
+        ) : myProjects.length === 0 ? (
+          <Empty>
+            No projects yet. When we start work for you, it'll show up here.
+          </Empty>
+        ) : (
+          <CardGrid>
+            {myProjects.map((p) => (
+              <ProjectCard key={p._id} to={buildMyProjectPath(p._id)}>
+                <div className="top">
+                  <span className="name">{p.title}</span>
+                  <StatusPill>
+                    {PROJECT_STATUS_LABEL[p.status] || p.status}
+                  </StatusPill>
+                </div>
+                <ProjectMeta>
+                  {p.dueDate && (
+                    <span>
+                      <Clock size={12} /> Due{' '}
+                      {new Date(p.dueDate).toLocaleDateString('en-KE')}
+                    </span>
+                  )}
+                  <span style={{ marginLeft: 'auto' }}>
+                    View <ArrowUpRight size={11} />
+                  </span>
+                </ProjectMeta>
+                <ProjectProgressBar $pct={p.progress || 0}>
+                  <div />
+                </ProjectProgressBar>
+              </ProjectCard>
+            ))}
+          </CardGrid>
+        )}
+      </Section>
 
       {/* INFO GRID */}
       <Grid>

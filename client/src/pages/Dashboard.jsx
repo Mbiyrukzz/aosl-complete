@@ -24,12 +24,15 @@ import {
   Gem,
   Award,
   Crown,
+  FolderKanban,
 } from 'lucide-react'
 import { useUser } from '../hooks/useUser'
 import { useIssues } from '../hooks/useIssues'
 import { usePackages } from '../hooks/usePackages'
 import { useReminders } from '../hooks/useReminders'
-import { ROUTES, ROLES, buildIssuePath } from '../constants/routes'
+import {useProjects} from '../hooks/useProjects'
+import { ROUTES, ROLES, buildIssuePath,  buildAdminProjectPath,
+  buildMyProjectPath,  } from '../constants/routes'
 import IssueListSkeleton from '../components/IssueListSkeleton'
 import TierBadge from '../components/TierBadge'
 
@@ -413,6 +416,61 @@ const greeting = () => {
   return 'Good evening'
 }
 
+
+const PROJECT_STATUS_LABEL = {
+  not_started: 'Not started',
+  in_progress: 'In progress',
+  review: 'In review',
+  completed: 'Completed',
+  on_hold: 'On hold',
+  cancelled: 'Cancelled',
+}
+
+const ProjectList = ({ projects, emptyText, buildPath, showCompany = false }) => {
+  if (projects.length === 0) return <EmptyState>{emptyText}</EmptyState>
+  return projects.map((p) => {
+    const overdue =
+      p.dueDate &&
+      new Date(p.dueDate) < new Date() &&
+      p.status !== 'completed' &&
+      p.status !== 'cancelled'
+
+    return (
+      <ListItem
+        key={p._id}
+        to={buildPath(p._id)}
+        $tint="rgba(99,102,241,0.12)"
+        $color="#6366f1"
+        $rightColor={overdue ? '#ef4444' : undefined}
+      >
+        <span className="icon-box">
+          <FolderKanban size={16} />
+        </span>
+        <div className="body">
+          <h4>{p.title}</h4>
+          <div className="meta">
+            <span>{PROJECT_STATUS_LABEL[p.status] || p.status}</span>
+            {showCompany && p.companyId?.name && (
+              <>
+                <span>·</span>
+                <span>{p.companyId.name}</span>
+              </>
+            )}
+            {p.dueDate && (
+              <>
+                <span>·</span>
+                <Calendar size={11} />
+                <span>{formatDateShort(p.dueDate)}</span>
+              </>
+            )}
+          </div>
+        </div>
+        <span className="right">{p.progress ?? 0}%</span>
+      </ListItem>
+    )
+  })
+}
+
 /* ---------- Issue list helper (with tier badges) ---------- */
 
 const IssueList = ({ issues, emptyText }) => {
@@ -668,7 +726,9 @@ const ClientDashboard = ({
 }) => {
   const clientTier = resolveClientTier(profile)
 
-  const stats = useMemo(() => {
+  const { myProjects, myProjectsLoading } = useProjects()  
+
+   const stats = useMemo(() => {
     const open = issues.filter((i) => i.status === 'open').length
     const inProgress = issues.filter((i) => i.status === 'in_progress').length
     const expiringSoon = packages.filter(
@@ -677,8 +737,20 @@ const ClientDashboard = ({
     const upcomingReminders = reminders.filter(
       (r) => r.status === 'scheduled',
     ).length
-    return { open, inProgress, expiringSoon, upcomingReminders }
-  }, [issues, packages, reminders])
+    const activeProjects = myProjects.filter(
+      (p) => p.status !== 'completed' && p.status !== 'cancelled',
+    ).length
+    return { open, inProgress, expiringSoon, upcomingReminders, activeProjects }
+  }, [issues, packages, reminders, myProjects])
+
+  const recentProjects = useMemo(
+    () =>
+      [...myProjects]
+        .filter((p) => p.status !== 'completed' && p.status !== 'cancelled')
+        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+        .slice(0, 4),
+    [myProjects],
+  )
 
   const recentActive = useMemo(
     () =>
@@ -723,7 +795,17 @@ const ClientDashboard = ({
 
       {clientTier && <TierBanner tier={clientTier} />}
 
-      <Grid $cols={4}>
+      <Grid $cols={5}>
+
+        <StatCard to={ROUTES.MY_PROJECTS} $tint="rgba(99,102,241,0.12)" $color="#6366f1">
+    <span className="icon">
+      <FolderKanban size={20} />
+    </span>
+    <div>
+      <div className="num">{stats.activeProjects}</div>
+      <div className="lbl">Active projects</div>
+    </div>
+  </StatCard>
         <StatCard
           to={ROUTES.SUPPORT}
           $tint="rgba(59,130,246,0.12)"
@@ -816,26 +898,29 @@ const ClientDashboard = ({
         </Panel>
       </SectionGrid>
 
-      <Panel>
-        <PanelHead>
-          <h2>Active issues</h2>
-          <Link to={ROUTES.SUPPORT}>
-            View all <ArrowRight size={13} />
-          </Link>
-        </PanelHead>
-        <PanelBody>
-          {loading ? (
-            <div style={{ padding: '0.5rem' }}>
-              <IssueListSkeleton count={3} />
-            </div>
-          ) : (
-            <IssueList
-              issues={recentActive}
-              emptyText="You have no active issues. Nice."
-            />
-          )}
-        </PanelBody>
-      </Panel>
+    <Panel style={{ marginBottom: '1.25rem' }}>
+  <PanelHead>
+    <h2>
+      <FolderKanban size={15} /> Your projects
+    </h2>
+    <Link to={ROUTES.MY_PROJECTS}>
+      View all <ArrowRight size={13} />
+    </Link>
+  </PanelHead>
+  <PanelBody>
+    {myProjectsLoading ? (
+      <div style={{ padding: '0.5rem' }}>
+        <IssueListSkeleton count={3} />
+      </div>
+    ) : (
+      <ProjectList
+        projects={recentProjects}
+        emptyText="No active projects yet."
+        buildPath={buildMyProjectPath}
+      />
+    )}
+  </PanelBody>
+</Panel>
     </>
   )
 }
@@ -843,6 +928,9 @@ const ClientDashboard = ({
 /* ---------- Admin Dashboard ---------- */
 
 const AdminDashboard = ({ user, issues, loading, packages, reminders }) => {
+
+   const { projects, loading: projectsLoading } = useProjects()  
+
   const stats = useMemo(() => {
     const open = issues.filter((i) => i.status === 'open').length
     const urgent = issues.filter(
@@ -866,16 +954,40 @@ const AdminDashboard = ({ user, issues, loading, packages, reminders }) => {
         i.status !== 'closed',
     ).length
 
+    const activeProjects = projects.filter(
+      (p) => p.status !== 'completed' && p.status !== 'cancelled',
+    ).length
+    const overdueProjects = projects.filter(  
+      (p) =>
+        p.dueDate &&
+        new Date(p.dueDate) < new Date() &&
+        p.status !== 'completed' &&
+        p.status !== 'cancelled',
+    ).length
+
     return {
-      open,
-      urgent,
-      unassigned,
-      expiringSoon,
-      expired,
-      scheduledReminders,
-      slaBreached,
+      open, urgent, unassigned, expiringSoon, expired,
+      scheduledReminders, slaBreached,
+      activeProjects, overdueProjects,  
     }
-  }, [issues, packages, reminders])
+  }, [issues, packages, reminders, projects])
+
+
+  const attentionProjects = useMemo(   // new — overdue first, then soonest due
+    () =>
+      [...projects]
+        .filter((p) => p.status !== 'completed' && p.status !== 'cancelled')
+        .sort((a, b) => {
+          const aOverdue = a.dueDate && new Date(a.dueDate) < new Date()
+          const bOverdue = b.dueDate && new Date(b.dueDate) < new Date()
+          if (aOverdue && !bOverdue) return -1
+          if (bOverdue && !aOverdue) return 1
+          if (a.dueDate && b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate)
+          return new Date(b.updatedAt) - new Date(a.updatedAt)
+        })
+        .slice(0, 5),
+    [projects],
+  )
 
   const myQueue = useMemo(
     () =>
@@ -966,8 +1078,8 @@ const AdminDashboard = ({ user, issues, loading, packages, reminders }) => {
         </PrimaryButton>
       </Header>
 
-      {/* 7-card stat grid: open, urgent, unassigned, SLA breached, expiring, expired, reminders */}
-      <Grid $cols={7}>
+      {/* 9-card stat grid: open, urgent, unassigned, SLA breached, expiring, expired, reminders, active projects, overdue projects */}
+      <Grid $cols={9}>
         <StatCard
           to={ROUTES.ADMIN_ISSUES}
           $tint="rgba(59,130,246,0.12)"
@@ -1034,6 +1146,20 @@ const AdminDashboard = ({ user, issues, loading, packages, reminders }) => {
             <div className="lbl">Expiring</div>
           </div>
         </StatCard>
+        <StatCard to={ROUTES.ADMIN_PROJECTS} $tint="rgba(99,102,241,0.12)" $color="#6366f1">
+  <span className="icon"><FolderKanban size={20} /></span>
+  <div>
+    <div className="num">{stats.activeProjects}</div>
+    <div className="lbl">Active projects</div>
+  </div>
+</StatCard>
+<StatCard to={ROUTES.ADMIN_PROJECTS} $tint="rgba(239,68,68,0.12)" $color="#ef4444">
+  <span className="icon"><AlertTriangle size={20} /></span>
+  <div>
+    <div className="num">{stats.overdueProjects}</div>
+    <div className="lbl">Overdue projects</div>
+  </div>
+</StatCard>
         <StatCard
           to={ROUTES.ADMIN_PACKAGES}
           $tint="rgba(239,68,68,0.12)"
@@ -1165,6 +1291,31 @@ const AdminDashboard = ({ user, issues, loading, packages, reminders }) => {
             />
           </PanelBody>
         </Panel>
+
+        <Panel style={{ marginBottom: '1.25rem' }}>
+  <PanelHead>
+    <h2>
+      <FolderKanban size={15} /> Projects needing attention
+    </h2>
+    <Link to={ROUTES.ADMIN_PROJECTS}>
+      View all <ArrowRight size={13} />
+    </Link>
+  </PanelHead>
+  <PanelBody>
+    {projectsLoading ? (
+      <div style={{ padding: '0.5rem' }}>
+        <IssueListSkeleton count={3} />
+      </div>
+    ) : (
+      <ProjectList
+        projects={attentionProjects}
+        emptyText="No active projects right now."
+        buildPath={buildAdminProjectPath}
+        showCompany
+      />
+    )}
+  </PanelBody>
+</Panel>
       </SectionGrid>
     </>
   )

@@ -105,6 +105,7 @@ import {
   adminGetPaymentRoute,
   adminListPaymentsRoute,
 } from './adminPaymentsRoutes.js'
+import { addProjectUpdateRoute, createProjectRoute, deleteProjectRoute, getProjectRoute, listProjectsRoute, myProjectDetailRoute, myProjectsRoute, updateProjectRoute } from './projectsRoutes.js'
 
 
 const routes = [
@@ -200,6 +201,15 @@ const routes = [
   paymentsConfirmationRoute,
   paymentsSitesValidationRoute,
   paymentsSitesConfirmationRoute,
+
+    createProjectRoute,
+  listProjectsRoute,
+  getProjectRoute,
+  updateProjectRoute,
+  addProjectUpdateRoute,
+  deleteProjectRoute,
+  myProjectsRoute,
+  myProjectDetailRoute,
 
   listSitesRoute,
   getSiteRoute,

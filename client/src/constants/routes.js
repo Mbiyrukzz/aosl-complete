@@ -25,11 +25,15 @@ export const ROUTES = {
   ADMIN_PAYMENTS: '/admin/payments',
   ADMIN_SITE_DETAIL: '/admin/sites/:id',
   ADMIN_PAYMENT_DETAIL: '/admin/payments/:id',
+  ADMIN_PROJECTS: '/admin/projects',
+  ADMIN_PROJECT_DETAIL: '/admin/projects/:id',
 
   MY_PACKAGES: '/my-packages',
   MY_PACKAGE_DETAIL: '/my-packages/:id',
   MY_REMINDERS: '/my-reminders',
   MY_REMINDER_DETAIL: '/my-reminders/:id',
+  MY_PROJECTS: '/my-projects',
+  MY_PROJECT_DETAIL: '/my-projects/:id',
   COMPANY_DETAILS: '/dashboard/company',
   ADMIN_INVOICES: '/accounts/invoices',
   ADMIN_QUOTATIONS: '/accounts/quotations',
@@ -50,6 +54,10 @@ export const buildAdminIssuesPath = (companyId) =>
 
 export const buildAdminSitePath = (id) => `/admin/sites/${id}`
 export const buildAdminPaymentPath = (id) => `/admin/payments/${id}`
+export const buildAdminProjectPath = (id) => `/admin/projects/${id}`
+export const buildMyProjectPath = (id) => `/my-projects/${id}`
+export const buildAdminProjectsPath = (companyId) =>
+  companyId ? `/admin/projects?companyId=${companyId}` : '/admin/projects'
 
 export const ROLES = {
   CLIENT: 'client',

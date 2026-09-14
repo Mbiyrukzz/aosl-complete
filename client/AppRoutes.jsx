@@ -40,6 +40,10 @@ import AdminSites from './src/pages/AdminSites'
 import AdminPayments from './src/pages/AdminPayments'
 import SiteDetailPage from './src/pages/SiteDetailPage'
 import PaymentDetailPage from './src/pages/PaymentDetailPage'
+import AdminProjects from './src/pages/AdminProjects'
+import AdminProjectDetail from './src/pages/AdminProjectDetail'
+import MyProjects from './src/pages/MyProjects'
+import MyProjectDetail from './src/pages/MyProjectDetail'
 
 const AppRoutes = () => {
   return (
@@ -71,6 +75,11 @@ const AppRoutes = () => {
           <Route
             path={ROUTES.MY_REMINDER_DETAIL}
             element={<MyReminderDetail />}
+          />
+          <Route path={ROUTES.MY_PROJECTS} element={<MyProjects />} />
+          <Route
+            path={ROUTES.MY_PROJECT_DETAIL}
+            element={<MyProjectDetail />}
           />
           <Route path={ROUTES.SUPPORT} element={<Support />} />
           <Route path={ROUTES.SUPPORT_DETAIL} element={<IssueDetail />} />
@@ -118,6 +127,11 @@ const AppRoutes = () => {
           />
           <Route path={ROUTES.ADMIN_INVOICES} element={<AdminInvoices />} />
           <Route path={ROUTES.ADMIN_QUOTATIONS} element={<AdminQuotations />} />
+          <Route path={ROUTES.ADMIN_PROJECTS} element={<AdminProjects />} />
+          <Route
+            path={ROUTES.ADMIN_PROJECT_DETAIL}
+            element={<AdminProjectDetail />}
+          />
           <Route path={ROUTES.SETTINGS} element={<Settings />} />
         </Route>
       </Route>

@@ -23,10 +23,14 @@ import {
   FileText,
   StickyNote,
   Calendar,
+  FolderKanban,
+  Clock,
 } from 'lucide-react'
+
+import { useProjects } from '../hooks/useProjects'
 import Modal from '../components/Modal'
 import { useCompanies } from '../hooks/useCompanies'
-import { ROUTES, buildAdminIssuesPath } from '../constants/routes'
+import { ROUTES, buildAdminIssuesPath, buildAdminProjectPath } from '../constants/routes'
 import { FullScreenLoader } from '../components/Loader'
 
 /* ---------- Styled components ---------- */
@@ -526,6 +530,88 @@ const FormActions = styled.div`
   justify-content: flex-end;
 `
 
+
+const ProjectCard = styled(Link)`
+  display: block;
+  background: ${({ theme }) => theme.colors.background};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.radii.lg};
+  padding: 1rem 1.1rem;
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
+
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .name {
+    color: ${({ theme }) => theme.colors.text};
+    font-weight: 600;
+    font-size: 0.92rem;
+  }
+`
+
+const ProjectMeta = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: ${({ theme }) => theme.colors.muted};
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+`
+
+const ProjectProgressBar = styled.div`
+  margin-top: 0.75rem;
+  height: 6px;
+  border-radius: 999px;
+  background: ${({ theme }) => theme.colors.border};
+  overflow: hidden;
+
+  div {
+    height: 100%;
+    background: #6366f1;
+    width: ${({ $pct }) => $pct}%;
+  }
+`
+
+const ProjectStatusPill = styled.span`
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(99, 102, 241, 0.12);
+  color: #6366f1;
+`
+
+const CardGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+`
+
+const PROJECT_STATUS_LABEL = {
+  not_started: 'Not started',
+  in_progress: 'In progress',
+  review: 'In review',
+  completed: 'Completed',
+  on_hold: 'On hold',
+  cancelled: 'Cancelled',
+}
+
 /* ---------- Constants ---------- */
 
 const TIER_CONFIG = {
@@ -601,6 +687,8 @@ const AdminCompanyDetail = () => {
   const { updateCompany, deleteCompany, getCompanyDetail, getCompanyInvoices } =
     useCompanies()
 
+  const { getCompanyProjects } = useProjects() 
+
   const [activeTab, setActiveTab] = useState('users')
   const [editOpen, setEditOpen] = useState(false)
   const [form, setForm] = useState(blankForm)
@@ -614,33 +702,45 @@ const AdminCompanyDetail = () => {
   const [invoices, setInvoices] = useState([])
   const [invoicesLoading, setInvoicesLoading] = useState(false)
 
+
+  const [projectsList, setProjectsList] = useState([])  
+const [projectsLoading, setProjectsLoading] = useState(false)
+
   const refresh = useCallback(async () => {
-    if (!id) return
+  if (!id) return
 
-    setLoading(true)
-    setError(null)
+  setLoading(true)
+  setError(null)
 
-    try {
-      const data = await getCompanyDetail(id)
+  try {
+    const data = await getCompanyDetail(id)
+    setCompany(data.company || data)
+  } catch (err) {
+    setError(err)
+  } finally {
+    setLoading(false)
+  }
 
-      // depending on backend response shape
-      setCompany(data.company || data)
-    } catch (err) {
-      setError(err)
-    } finally {
-      setLoading(false)
-    }
+  setInvoicesLoading(true)
+  try {
+    const invs = await getCompanyInvoices(id)
+    setInvoices(invs)
+  } catch (err) {
+    console.error('Failed to fetch invoices:', err)
+  } finally {
+    setInvoicesLoading(false)
+  }
 
-    setInvoicesLoading(true)
-    try {
-      const invs = await getCompanyInvoices(id)
-      setInvoices(invs)
-    } catch (err) {
-      console.error('Failed to fetch invoices:', err)
-    } finally {
-      setInvoicesLoading(false)
-    }
-  }, [id, getCompanyDetail, getCompanyInvoices])
+  setProjectsLoading(true)
+  try {
+    const projs = await getCompanyProjects(id)
+    setProjectsList(projs)
+  } catch (err) {
+    console.error('Failed to fetch projects:', err)
+  } finally {
+    setProjectsLoading(false)
+  }
+}, [id, getCompanyDetail, getCompanyInvoices, getCompanyProjects])
 
   useEffect(() => {
     refresh()
@@ -949,6 +1049,14 @@ const AdminCompanyDetail = () => {
           <FileText size={13} /> Invoices
           <span className="badge">{invoices.length}</span>
         </Tab>
+
+        <Tab
+  $active={activeTab === 'projects'}
+  onClick={() => setActiveTab('projects')}
+>
+  <FolderKanban size={13} /> Projects
+  <span className="badge">{projectsList.length}</span>
+</Tab>
       </Tabs>
 
       <Panel>
@@ -1120,6 +1228,43 @@ const AdminCompanyDetail = () => {
               </tbody>
             </Table>
           ))}
+
+          {activeTab === 'projects' &&
+  (projectsLoading ? (
+    <Empty>Loading projects…</Empty>
+  ) : projectsList.length === 0 ? (
+    <Empty>No projects for this company yet.</Empty>
+  ) : (
+    <CardGrid>
+      {projectsList.map((p) => (
+        <ProjectCard
+  key={p._id}
+  to={buildAdminProjectPath(p._id)}
+>
+          <div className="top">
+            <span className="name">{p.title}</span>
+            <ProjectStatusPill>
+              {PROJECT_STATUS_LABEL[p.status] || p.status}
+            </ProjectStatusPill>
+          </div>
+          <ProjectMeta>
+            {p.dueDate && (
+              <span>
+                <Clock size={12} /> Due{' '}
+                {new Date(p.dueDate).toLocaleDateString('en-KE')}
+              </span>
+            )}
+            <span style={{ marginLeft: 'auto' }}>
+              View <ArrowUpRight size={11} />
+            </span>
+          </ProjectMeta>
+          <ProjectProgressBar $pct={p.progress || 0}>
+            <div />
+          </ProjectProgressBar>
+        </ProjectCard>
+      ))}
+    </CardGrid>
+  ))}
 
         {/* Invoices tab */}
         {activeTab === 'invoices' &&

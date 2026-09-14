@@ -18,6 +18,7 @@ import {
   Settings as SettingsIcon,
   ChevronDown,
   Wallet,
+  FolderKanban,
 } from 'lucide-react'
 import { auth } from '../services/firebase'
 import { useUser } from '../hooks/useUser'
@@ -360,23 +361,26 @@ const Sidebar = () => {
         </Item>
 
         {/* ── Client-only items ──────────────────────────────────────────── */}
-        {!isStaff && (
-          <>
-            <Item to={ROUTES.COMPANY_DETAILS}>
-              <Building2 size={18} />
-              <span className="label">Company</span>
-            </Item>
-            <Item to={ROUTES.MY_PACKAGES}>
-              <Package size={18} />
-              <span className="label">My Packages</span>
-            </Item>
-            <Item to={ROUTES.MY_REMINDERS}>
-              <Bell size={18} />
-              <span className="label">My Reminders</span>
-            </Item>
-          </>
-        )}
-
+       {!isStaff && (
+  <>
+    <Item to={ROUTES.COMPANY_DETAILS}>
+      <Building2 size={18} />
+      <span className="label">Company</span>
+    </Item>
+    <Item to={ROUTES.MY_PROJECTS}>
+      <FolderKanban size={18} />
+      <span className="label">My Projects</span>
+    </Item>
+    <Item to={ROUTES.MY_PACKAGES}>
+      <Package size={18} />
+      <span className="label">My Packages</span>
+    </Item>
+    <Item to={ROUTES.MY_REMINDERS}>
+      <Bell size={18} />
+      <span className="label">My Reminders</span>
+    </Item>
+  </>
+)}
         {/* ── Staff / Admin grouped items ────────────────────────────────── */}
         {isStaff && (
           <>
@@ -426,27 +430,32 @@ const Sidebar = () => {
 
             {/* Operations: Jobs + Companies + Packages */}
             <NavGroup
-              icon={Briefcase}
-              label="Operations"
-              routes={[
-                ROUTES.ADMIN_JOBS,
-                ROUTES.ADMIN_COMPANIES,
-                ROUTES.ADMIN_PACKAGES,
-              ]}
-            >
-              <SubItem to={ROUTES.ADMIN_JOBS}>
-                <Briefcase size={15} />
-                <span className="label">Jobs</span>
-              </SubItem>
-              <SubItem to={ROUTES.ADMIN_COMPANIES}>
-                <Building2 size={15} />
-                <span className="label">Companies</span>
-              </SubItem>
-              <SubItem to={ROUTES.ADMIN_PACKAGES}>
-                <Package size={15} />
-                <span className="label">Packages</span>
-              </SubItem>
-            </NavGroup>
+  icon={Briefcase}
+  label="Operations"
+  routes={[
+    ROUTES.ADMIN_JOBS,
+    ROUTES.ADMIN_COMPANIES,
+    ROUTES.ADMIN_PACKAGES,
+    ROUTES.ADMIN_PROJECTS,
+  ]}
+>
+  <SubItem to={ROUTES.ADMIN_JOBS}>
+    <Briefcase size={15} />
+    <span className="label">Jobs</span>
+  </SubItem>
+  <SubItem to={ROUTES.ADMIN_COMPANIES}>
+    <Building2 size={15} />
+    <span className="label">Companies</span>
+  </SubItem>
+  <SubItem to={ROUTES.ADMIN_PACKAGES}>
+    <Package size={15} />
+    <span className="label">Packages</span>
+  </SubItem>
+  <SubItem to={ROUTES.ADMIN_PROJECTS}>
+    <FolderKanban size={15} />
+    <span className="label">Projects</span>
+  </SubItem>
+</NavGroup>
 
             {/* Workspace: All Issues + Reminders */}
             <NavGroup
