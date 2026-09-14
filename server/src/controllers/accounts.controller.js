@@ -356,6 +356,8 @@ export const createInvoice = async (req, res) => {
       notes = '',
       issueDate,
       dueDate,
+      signatoryName, 
+      signatoryTitle,
     } = req.body
 
     if (!lineItems.length) {
@@ -374,6 +376,11 @@ export const createInvoice = async (req, res) => {
         resolvedClientAddress = resolvedClientAddress || company.address
       }
     }
+
+    // Default the signature block to whoever is actually issuing this
+    // invoice, instead of a hardcoded name — falls back to the User's
+    // own displayName/jobTitle unless explicitly overridden in the form.
+    const signer = await User.findOne({ uid: req.user.uid }).lean()
 
     const { subtotal, vatAmount, total } = calcTotals(lineItems, vatRate)
     const refNumber = await Invoice.generateRefNumber()
@@ -396,6 +403,8 @@ export const createInvoice = async (req, res) => {
       notes,
       issueDate: issueDate || new Date(),
       dueDate: dueDate || null,
+      signatoryName: signatoryName || signer?.displayName || '',
+      signatoryTitle: signatoryTitle || signer?.jobTitle || '',
       createdBy: req.user.uid,
     })
 
@@ -426,6 +435,8 @@ export const updateInvoice = async (req, res) => {
       'status',
       'paidAt',
       'etimsRef',
+      'signatoryName',
+  'signatoryTitle',
     ]
     for (const k of allowed) {
       if (req.body[k] !== undefined) inv[k] = req.body[k]

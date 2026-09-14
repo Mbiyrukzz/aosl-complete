@@ -4,6 +4,7 @@ import { PDFDownloadLink, pdf } from '@react-pdf/renderer'
 import { blobToBase64, QuotationPDFDocument } from '../pdf/QuotationPDF'
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
 import { useState } from 'react'
+import { BRAND } from '../constants/brand'
 
 /* ── Animations ───────────────────────────────────────────── */
 const fadeIn = keyframes`from { opacity: 0 } to { opacity: 1 }`
@@ -193,6 +194,23 @@ const BrandHeader = styled.div`
   gap: 1.5rem;
   margin-bottom: 2rem;
   flex-wrap: wrap;
+
+  .brand-left {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  .brand-logo {
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    object-fit: contain;
+    background: #f8fafc;
+    border: 1px solid #eef0f2;
+    padding: 4px;
+    flex-shrink: 0;
+  }
 
   .brand-name {
     font-size: 1.15rem;
@@ -569,12 +587,15 @@ export const InvoiceViewModal = ({ open, onClose, invoice: doc, onSend }) => {
         <DocBody>
           {/* Brand + doc type header */}
           <BrandHeader>
-            <div>
-              <div className="brand-name">ASHMIF OFFICE SOLUTIONS LTD</div>
-              <div className="brand-contact">
-                www.ashmif.com · Mombasa, Kenya
-                <br />
-                0758-839-829 · hello@ashmif.com
+            <div className="brand-left">
+              <img src={BRAND.logoUrl} alt={BRAND.name} className="brand-logo" />
+              <div>
+                <div className="brand-name">{BRAND.name}</div>
+                <div className="brand-contact">
+                  {BRAND.website} · {BRAND.address}
+                  <br />
+                  {BRAND.phone} · {BRAND.email}
+                </div>
               </div>
             </div>
             <div>
@@ -730,22 +751,23 @@ export const InvoiceViewModal = ({ open, onClose, invoice: doc, onSend }) => {
           {/* Notes */}
           {doc.notes && <Notes>{doc.notes}</Notes>}
 
-          {/* Signature — not shown for eTIMS uploads */}
+          {/* Signature — dynamic, not hardcoded — not shown for eTIMS uploads */}
           {!isUploaded && (
             <Sig>
               <div>Best Regards</div>
-              <div className="name">Ashmif Office Solutions Ltd</div>
-              <div className="role">www.ashmif.com</div>
+              <div className="name">{doc.signatoryName || BRAND.name}</div>
+              <div className="role">
+                {doc.signatoryTitle || BRAND.website}
+              </div>
             </Sig>
           )}
 
           {/* Footer */}
           <Footer>
             <span>
-              Ashmif Office Solutions Ltd · Mombasa, Kenya · hello@ashmif.com ·
-              0758-839-829
+              {BRAND.name} · {BRAND.address} · {BRAND.email} · {BRAND.phone}
             </span>
-            <span className="slogan">Let our solutions work for you</span>
+            <span className="slogan">{BRAND.slogan}</span>
           </Footer>
         </DocBody>
       </Sheet>

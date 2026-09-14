@@ -41,6 +41,9 @@ const invoiceSchema = new mongoose.Schema(
     clientAddress: { type: String, default: '' },
     attn: { type: String, default: '' },
 
+
+    
+
     // ── Money ──────────────────────────────────────────────────
     currency: { type: String, default: 'KES' },
     vatRate: { type: Number, default: 16 },
@@ -67,6 +70,11 @@ const invoiceSchema = new mongoose.Schema(
     subject: { type: String, default: '' },
     sentAt: { type: Date, default: null },
     sentTo: { type: String, default: '' },
+
+    // Who signs off on this document — auto-filled from the creator at
+    // issue time, but editable so a different staff member can be credited
+    signatoryName: { type: String, default: '' },
+    signatoryTitle: { type: String, default: '' },
 
     createdBy: { type: String, required: true },
   },

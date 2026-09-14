@@ -50,6 +50,19 @@ const quotationSchema = new mongoose.Schema(
     issueDate: { type: Date, default: Date.now },
     validUntil: { type: Date, default: null },
 
+
+    // models/Invoice.js — add inside invoiceSchema, near notes/subject
+    notes: { type: String, default: '' },
+    subject: { type: String, default: '' },
+    sentAt: { type: Date, default: null },
+    sentTo: { type: String, default: '' },
+
+    // Who signs off on this document — auto-filled from the creator at
+    // issue time, but editable so a different staff member can be credited
+    signatoryName: { type: String, default: '' },
+    signatoryTitle: { type: String, default: '' },
+
+
     // ── Meta ───────────────────────────────────────────────────
     notes: { type: String, default: '' },
     subject: { type: String, default: '' }, // email subject / doc title

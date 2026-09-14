@@ -1,24 +1,3 @@
-/**
- * QuotationPDF.jsx
- *
- * Generates a PDF matching the AOSL letterhead style using @react-pdf/renderer.
- *
- * Install: npm install @react-pdf/renderer
- *
- * Usage:
- *   import { PDFDownloadLink } from '@react-pdf/renderer'
- *   import { QuotationPDFDocument } from './QuotationPDF'
- *
- *   <PDFDownloadLink document={<QuotationPDFDocument doc={quotation} type="quotation" />}
- *                    fileName={`${quotation.refNumber}.pdf`}>
- *     Download PDF
- *   </PDFDownloadLink>
- *
- *   // Or to get base64 for emailing:
- *   import { pdf } from '@react-pdf/renderer'
- *   const blob = await pdf(<QuotationPDFDocument doc={q} type="quotation" />).toBlob()
- *   const base64 = await blobToBase64(blob)
- */
 
 import {
   Document,
@@ -29,6 +8,10 @@ import {
   Font,
   Image,
 } from '@react-pdf/renderer'
+// Bundled asset import — swap the file at this path for the real logo.
+// react-pdf embeds it directly in the generated PDF (no network fetch needed).
+import aosLogo from '../assets/aos.png'
+import { BRAND } from '../constants/brand'
 
 /* ── Styles ──────────────────────────────────────────────── */
 
@@ -57,6 +40,12 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 24,
+  },
+  logo: {
+    width: 52,
+    height: 52,
+    marginBottom: 8,
+    objectFit: 'contain',
   },
   companyName: {
     fontSize: 16,
@@ -208,16 +197,17 @@ export const QuotationPDFDocument = ({ doc, type = 'quotation' }) => {
   const refLabel = `REF: ${label}`
 
   return (
-    <Document title={`${doc.refNumber} — Ashmif Office Solutions`}>
+    <Document title={`${doc.refNumber} — ${BRAND.name}`}>
       <Page size="A4" style={styles.page}>
         {/* ── Company header ── */}
         <View style={styles.header}>
-          <Text style={styles.companyName}>ASHMIF OFFICE SOLUTIONS LTD</Text>
+          <Image src={aosLogo} style={styles.logo} />
+          <Text style={styles.companyName}>{BRAND.name}</Text>
           <Text style={styles.companyContact}>
-            www.ashmif.com · www.smartrealtors.app
+            {BRAND.website} · www.smartrealtors.app
           </Text>
           <Text style={styles.companyContact}>
-            0758-839-829 · hello@ashmif.com
+            {BRAND.phone} · {BRAND.email}
           </Text>
         </View>
         <View style={styles.divider} />
@@ -325,22 +315,23 @@ export const QuotationPDFDocument = ({ doc, type = 'quotation' }) => {
         {/* ── Notes ── */}
         {doc.notes && <Text style={styles.notes}>{doc.notes}</Text>}
 
-        {/* ── Signature block ── */}
+        {/* ── Signature block — dynamic, no hardcoded person ── */}
         <View style={styles.sigBlock}>
           <Text style={styles.sigText}>Best Regards</Text>
-          <Text style={styles.sigName}>Amina Hassan</Text>
-          <Text style={styles.sigTitle}>Head of Marketing</Text>
+          <Text style={styles.sigName}>
+            {doc.signatoryName || BRAND.name}
+          </Text>
+          {doc.signatoryTitle && (
+            <Text style={styles.sigTitle}>{doc.signatoryTitle}</Text>
+          )}
         </View>
 
         {/* ── Footer ── */}
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
-            Ashmif Office Solutions Ltd · Mombasa, Kenya · hello@ashmif.com ·
-            0758-839-829
+            {BRAND.name} · {BRAND.address} · {BRAND.email} · {BRAND.phone}
           </Text>
-          <Text style={styles.footerSlogan}>
-            Let our solutions work for you
-          </Text>
+          <Text style={styles.footerSlogan}>{BRAND.slogan}</Text>
         </View>
       </Page>
     </Document>
