@@ -171,8 +171,8 @@ export const getReceiptRoute = {
 }
 
 export const storeReceiptPDFRoute = {
-  path: '/accounts/invoices/:id/store-receipt',
+  path: '/accounts/receipts/:id/store-pdf',
   method: 'post',
   middleware: [verifyFirebaseToken, isStaff],
   handler: storeReceiptPDF,
-} 
+}

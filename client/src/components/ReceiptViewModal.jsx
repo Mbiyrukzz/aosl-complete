@@ -2,7 +2,7 @@ import styled, { keyframes } from 'styled-components'
 import { X, Download, CheckCircle, Save } from 'lucide-react'
 import { PDFDownloadLink, pdf } from '@react-pdf/renderer'
 import { blobToBase64, ReceiptPDFDocument } from '../pdf/ReceiptPDF'
-import { useAuthedRequest } from '../hooks/useAuthedRequest'
+import { useAccounts } from '../hooks/useAccounts'
 import { useState } from 'react'
 import { BRAND } from '../constants/brand'
 
@@ -397,7 +397,7 @@ const fmtDate = (d) =>
     : '—'
 
 export const ReceiptViewModal = ({ open, onClose, receipt: r }) => {
-  const { post } = useAuthedRequest()
+  const { saveReceiptPdf } = useAccounts()
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -406,14 +406,11 @@ export const ReceiptViewModal = ({ open, onClose, receipt: r }) => {
   const pdfDoc = <ReceiptPDFDocument receipt={r} />
 
   const handleSaveToPortal = async () => {
-    if (!post) return
     setSaving(true)
     try {
       const blob = await pdf(pdfDoc).toBlob()
       const base64 = await blobToBase64(blob)
-      await post(`/api/accounts/receipts/${r._id}/store-pdf`, {
-        pdfBase64: base64,
-      })
+      await saveReceiptPdf(r._id, base64)
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (err) {

@@ -4,6 +4,7 @@ import { Receipt } from '../models/Receipt.js'
 import { Company } from '../models/Company.js'
 import { User } from '../models/User.js'
 import { sendEmail } from '../services/email.service.js'
+import { normalizePhone, sendSms } from '../services/smsService.js'
 import fs from 'fs'
 import path from 'path'
 
@@ -50,6 +51,54 @@ const persistPdf = (refNumber, pdfBase64, folder = 'invoices') => {
   fs.writeFileSync(filePath, Buffer.from(pdfBase64, 'base64'))
 
   return `/uploads/${folder}/${filename}`
+}
+
+
+
+
+/**
+ * Texts the client once a receipt is created. Mirrors the phone-resolution
+ * fallback used in projects.controller.js's notifyClients: prefer the
+ * client portal user's phone, fall back to the company's phone.
+ * Fire-and-forget from the caller's perspective — never throws.
+ */
+const notifyInvoicePaidSms = async (inv, receipt) => {
+  try {
+    if (!inv.companyId) return
+
+    const clients = await User.find({ companyId: inv.companyId, role: 'client' })
+      .select('phone')
+      .lean()
+
+    let phoneTargets = clients.map((u) => u.phone?.trim()).filter(Boolean)
+
+    if (phoneTargets.length === 0) {
+      const company = await Company.findById(inv.companyId).select('phone').lean()
+      if (company?.phone?.trim()) phoneTargets.push(company.phone.trim())
+    }
+
+    if (phoneTargets.length === 0) return
+
+    const message = `Payment received for invoice ${inv.refNumber}. Receipt ${receipt.refNumber} — ${receipt.currency} ${Number(
+      receipt.amountPaid,
+    ).toLocaleString('en-KE', { minimumFractionDigits: 2 })}. Thank you! — Ashmif Office Solutions`
+
+    await Promise.allSettled(
+      phoneTargets.map(async (rawPhone) => {
+        const msisdn = normalizePhone(rawPhone)
+        if (!msisdn) {
+          console.warn(`Could not normalize phone "${rawPhone}" for invoice ${inv._id} — SMS not sent`)
+          return
+        }
+        const result = await sendSms(msisdn, message)
+        if (!result || result.status !== 'success') {
+          console.error(`Payment SMS not delivered to ${msisdn} (invoice ${inv._id})`)
+        }
+      }),
+    )
+  } catch (err) {
+    console.error('notifyInvoicePaidSms error:', err)
+  }
 }
 
 /* ─── QUOTATIONS ──────────────────────────────────────────── */
@@ -624,6 +673,7 @@ export const markInvoicePaid = async (req, res) => {
     const paidAtDate = paidAt ? new Date(paidAt) : new Date()
 
     // Idempotency — one receipt per invoice
+   
     const existing = await Receipt.findOne({ invoiceId: inv._id }).lean()
     if (existing) {
       if (inv.status !== 'paid') {
@@ -631,7 +681,7 @@ export const markInvoicePaid = async (req, res) => {
         inv.paidAt = existing.paidAt
         await inv.save()
       }
-      return res.json({ invoice: inv.toObject(), receipt: existing })
+      return res.json({ invoice: inv.toObject(), receipt: existing }) // no SMS — already sent the first time
     }
 
     const signer = await User.findOne({ uid: req.user.uid }).lean()
@@ -661,9 +711,11 @@ export const markInvoicePaid = async (req, res) => {
       createdBy: req.user.uid,
     })
 
-    inv.status = 'paid'
+     inv.status = 'paid'
     inv.paidAt = paidAtDate
     await inv.save()
+
+    await notifyInvoicePaidSms(inv, receipt)
 
     res.status(201).json({ invoice: inv.toObject(), receipt: receipt.toObject() })
   } catch (err) {
@@ -715,8 +767,8 @@ export const storeReceiptPDF = async (req, res) => {
       return res.status(400).json({ error: 'pdfBase64 is required' })
     }
 
-    const receipt = await Receipt.findById(req.params.id)
-    if (!receipt) return res.status(404).json({ error: 'Receipt not found' })
+    const receipt = await Receipt.findOne({ invoiceId: req.params.id })
+    if (!receipt) return res.status(404).json({ error: 'No receipt for this invoice' })
 
     const attachmentUrl = persistPdf(receipt.refNumber, pdfBase64, 'receipts')
     receipt.attachmentUrl = attachmentUrl

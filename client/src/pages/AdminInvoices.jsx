@@ -56,7 +56,9 @@ import { useSearchParams } from 'react-router-dom'
 
 /* ── PDF — for generated invoices sent with attachment ────── */
 import { pdf } from '@react-pdf/renderer'
-import { blobToBase64, QuotationPDFDocument } from '../pdf/QuotationPDF'
+import { blobToBase64, QuotationPDFDocument, } from '../pdf/QuotationPDF'
+
+import { ReceiptPDFDocument } from '../pdf/ReceiptPDF'
 
 const SmallBtn = styled.button`
   display: inline-flex;
@@ -293,6 +295,8 @@ const AdminInvoices = () => {
     uploadInvoicePDF,
     markInvoicePaid,
     fetchInvoiceReceipt,
+    regenerateReceipt,
+    saveReceiptPdf,
   } = useAccounts()
 
   const [companies, setCompanies] = useState([])
@@ -311,6 +315,7 @@ const AdminInvoices = () => {
 
  
   const [receiptTarget, setReceiptTarget] = useState(null)
+   const [regeneratingFor, setRegeneratingFor] = useState(null)
   const [loadingReceiptFor, setLoadingReceiptFor] = useState(null)
 
   // Opens the view modal and remembers the invoice so it can be
@@ -394,7 +399,7 @@ const AdminInvoices = () => {
   }
 
   /**
-   * ✅ For generated invoices, build the PDF client-side and include
+   * For generated invoices, build the PDF client-side and include
    *    pdfBase64 so the server can attach it to the email.
    *    For uploaded eTIMS invoices, pass null — the server attaches the stored file.
    */
@@ -457,6 +462,22 @@ const AdminInvoices = () => {
       alert(err.response?.data?.error || err.message)
     }
   }
+
+
+
+const handleRegenerateReceipt = async (inv) => {
+  setRegeneratingFor(inv._id)
+  try {
+    const receipt = await fetchInvoiceReceipt(inv._id)
+    const blob = await pdf(<ReceiptPDFDocument receipt={receipt} />).toBlob()
+    const base64 = await blobToBase64(blob)
+    await saveReceiptPdf(receipt._id, base64)
+  } catch (err) {
+    alert(err.response?.data?.error || 'Failed to regenerate receipt')
+  } finally {
+    setRegeneratingFor(null)
+  }
+}
 
   /** Reopen an existing receipt for an already-paid invoice */
   const openReceipt = async (inv) => {
@@ -667,20 +688,19 @@ const AdminInvoices = () => {
                             </SmallBtn>
                           )}
 
-                        {/* ✅ Receipt — shown once the invoice is paid */}
+                        {/*  Receipt — shown once the invoice is paid */}
                         {inv.status === 'paid' && (
-                          <SmallBtn
-                            $success
-                            onClick={() => openReceipt(inv)}
-                            disabled={loadingReceiptFor === inv._id}
-                          >
-                            <FileCheck size={12} />
-                            {loadingReceiptFor === inv._id
-                              ? 'Loading…'
-                              : 'Receipt'}
-                          </SmallBtn>
-                        )}
-
+  <>
+    <SmallBtn onClick={() => openReceipt(inv)} disabled={loadingReceiptFor === inv._id}>
+      <FileCheck size={12} />
+      {loadingReceiptFor === inv._id ? 'Loading…' : 'Receipt'}
+    </SmallBtn>
+    <SmallBtn onClick={() => handleRegenerateReceipt(inv)} disabled={regeneratingFor === inv._id}>
+      <RefreshCw size={12} />
+      {regeneratingFor === inv._id ? '…' : 'Regenerate'}
+    </SmallBtn>
+  </>
+)}
                         {inv.type !== 'uploaded' && (
                           <SmallBtn onClick={() => setEditTarget(inv)}>
                             <Pencil size={12} />
@@ -698,11 +718,12 @@ const AdminInvoices = () => {
 
       {/* ── Modals ── */}
 
-      {/* ✅ View modal */}
+      {/* View modal */}
       <InvoiceViewModal
         open={!!viewTarget}
         onClose={() => setViewTarget(null)}
         invoice={viewTarget}
+        onRegenerate={handleRegenerateReceipt}
         onSend={handleViewSend}
       />
 

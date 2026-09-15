@@ -12,10 +12,12 @@ const getTransport = () => {
     throw new Error('GMAIL_USER and GMAIL_APP_PASSWORD must be set in .env')
   }
 
-  cachedTransport = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user, pass },
-  })
+ cachedTransport = nodemailer.createTransport({
+  host: 'mail.privateemail.com',
+  port: 465,
+  secure: true,
+  auth: { user, pass },
+})
 
   return cachedTransport
 }
@@ -53,6 +55,8 @@ export const sendEmail = async ({ to, subject, html, text, replyTo }) => {
   const transport = getTransport()
   const from = `"Ashmif Office Solutions" <${process.env.GMAIL_USER}>`
 
+  console.log(`📧 Attempting send: to=${to} from=${from}`)
+
   const info = await transport.sendMail({
     from,
     to,
@@ -60,6 +64,13 @@ export const sendEmail = async ({ to, subject, html, text, replyTo }) => {
     html,
     text,
     ...(replyTo ? { replyTo } : {}),
+  })
+
+  console.log('📧 SMTP response:', {
+    messageId: info.messageId,
+    response: info.response,
+    accepted: info.accepted,
+    rejected: info.rejected,
   })
 
   return info

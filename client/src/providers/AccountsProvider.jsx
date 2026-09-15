@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import useAuthedRequest from '../hooks/useAuthedRequest'
 import { AccountsContext } from '../contexts/AccountsContext'
-
+import { pdf } from '@react-pdf/renderer'
+import { blobToBase64, ReceiptPDFDocument } from '../pdf/ReceiptPDF'
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+
 const API_BASE = `${BASE_URL}/api/accounts`
 
 export const AccountsProvider = ({ children, scope = 'stats' }) => {
@@ -225,6 +227,26 @@ export const AccountsProvider = ({ children, scope = 'stats' }) => {
     [get],
   )
 
+  const saveReceiptPdf = useCallback(
+  async (receiptId, pdfBase64) => {
+    const data = await post(`${API_BASE}/receipts/${receiptId}/store-pdf`, {
+      pdfBase64,
+    })
+    return data.receipt
+  },
+  [post],
+)
+
+  const regenerateReceipt = useCallback(
+  async (invoiceId, receipt) => {
+    const blob = await pdf(<ReceiptPDFDocument receipt={receipt} />).toBlob()
+    const pdfBase64 = await blobToBase64(blob)
+    const data = await post(`${API_BASE}/invoices/${invoiceId}/store-receipt`, { pdfBase64 })
+    return data.receipt
+  },
+  [post],
+)
+
   /**
    * Upload an eTIMS PDF invoice.
    */
@@ -276,6 +298,8 @@ export const AccountsProvider = ({ children, scope = 'stats' }) => {
         uploadInvoicePDF,
         markInvoicePaid,
         fetchInvoiceReceipt,
+        regenerateReceipt,
+        saveReceiptPdf,
 
         // Stats
         fetchStats,
