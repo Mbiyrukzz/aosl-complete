@@ -11,6 +11,7 @@ import {
   CheckCircle,
   Eye,
   FileCheck,
+  XCircle,
 } from 'lucide-react'
 import { useAccounts } from '../hooks/useAccounts'
 import { useAuthedRequest } from '../hooks/useAuthedRequest'
@@ -143,10 +144,7 @@ const UploadModal = ({
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  /**
-   * ✅ Fix: use a plain submit handler (not an HTML <form> onSubmit)
-   *    and build FormData manually so the file reaches multer correctly.
-   */
+  
   const handleSubmit = async () => {
     if (!form.file) return alert('Please select a PDF file.')
 
@@ -283,6 +281,78 @@ const UploadModal = ({
 
 /* ── Main page ────────────────────────────────────────────── */
 
+/* ── Mark Paid Modal ──────────────────────────────────────── */
+const MarkPaidModal = ({ open, onClose, onConfirm, invoice, submitting }) => {
+  const [paymentMethod, setPaymentMethod] = useState('')
+  const [paymentReference, setPaymentReference] = useState('')
+
+  // Reset fields each time a new invoice is targeted, so leftover
+  // values from a previous mark-paid don't leak into this one.
+  useEffect(() => {
+    if (open) {
+      setPaymentMethod('')
+      setPaymentReference('')
+    }
+  }, [open])
+
+  if (!open) return null
+
+  const handleSubmit = () => {
+    onConfirm({
+      paymentMethod: paymentMethod.trim(),
+      paymentReference: paymentReference.trim(),
+    })
+  }
+
+  return (
+    <Modal>
+      <ModalBox>
+        <ModalHead>
+          <h2>Mark {invoice?.refNumber} as paid</h2>
+          <CloseBtn type="button" onClick={onClose}>
+            <X size={16} />
+          </CloseBtn>
+        </ModalHead>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <Field>
+            <Label>Payment method</Label>
+            <Select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+            >
+              <option value="">— Select method —</option>
+              <option value="M-Pesa">M-Pesa</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Cash">Cash</option>
+              <option value="Cheque">Cheque</option>
+              <option value="Other">Other</option>
+            </Select>
+          </Field>
+          <Field>
+            <Label>Payment reference</Label>
+            <Input
+              value={paymentReference}
+              onChange={(e) => setPaymentReference(e.target.value)}
+              placeholder="e.g. M-Pesa code, cheque no. (optional)"
+            />
+          </Field>
+        </div>
+
+        <ModalActions>
+          <SecondaryButton type="button" onClick={onClose}>
+            Cancel
+          </SecondaryButton>
+          <PrimaryButton type="button" onClick={handleSubmit} disabled={submitting}>
+            <CheckCircle size={14} />
+            {submitting ? 'Marking…' : 'Mark as paid'}
+          </PrimaryButton>
+        </ModalActions>
+      </ModalBox>
+    </Modal>
+  )
+}
+
 const AdminInvoices = () => {
   const { isReady, get } = useAuthedRequest()
   const {
@@ -297,6 +367,7 @@ const AdminInvoices = () => {
     fetchInvoiceReceipt,
     regenerateReceipt,
     saveReceiptPdf,
+    unmarkInvoicePaid
   } = useAccounts()
 
   const [companies, setCompanies] = useState([])
@@ -310,6 +381,7 @@ const AdminInvoices = () => {
   const [showUpload, setShowUpload] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [viewTarget, setViewTarget] = useState(null)
+  const [payTarget, setPayTarget] = useState(null)
   const [sendTarget, setSendTarget] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -439,31 +511,31 @@ const AdminInvoices = () => {
    * A couple of lightweight prompts capture optional payment details —
    * swap these for a proper modal form later if you want richer input.
    */
-  const markPaid = async (inv) => {
-    if (!confirm('Mark this invoice as paid?')) return
-    const paymentMethod = prompt(
-      'Payment method (e.g. M-Pesa, Bank Transfer, Cash) — optional:',
-      '',
-    )
-    if (paymentMethod === null) return // cancelled
-    const paymentReference = prompt(
-      'Payment reference (e.g. M-Pesa code) — optional:',
-      '',
-    )
-    if (paymentReference === null) return // cancelled
-
-    try {
-      const { receipt } = await markInvoicePaid(inv._id, {
-        paymentMethod: paymentMethod.trim(),
-        paymentReference: paymentReference.trim(),
-      })
-      setReceiptTarget(receipt)
-    } catch (err) {
-      alert(err.response?.data?.error || err.message)
-    }
+const handleConfirmMarkPaid = async ({ paymentMethod, paymentReference }) => {
+  if (!payTarget) return
+  setSubmitting(true)
+  try {
+    const { receipt } = await markInvoicePaid(payTarget._id, {
+      paymentMethod,
+      paymentReference,
+    })
+    setReceiptTarget(receipt)
+    setPayTarget(null)
+  } catch (err) {
+    alert(err.response?.data?.error || err.message)
+  } finally {
+    setSubmitting(false)
   }
+}
 
-
+  const handleUnmarkPaid = async (inv) => {
+  if (!confirm(`Unmark ${inv.refNumber} as paid? This deletes its receipt.`)) return
+  try {
+    await unmarkInvoicePaid(inv._id)
+  } catch (err) {
+    alert(err.response?.data?.error || err.message)
+  }
+}
 
 const handleRegenerateReceipt = async (inv) => {
   setRegeneratingFor(inv._id)
@@ -680,16 +752,13 @@ const handleRegenerateReceipt = async (inv) => {
 
                         {inv.status !== 'paid' &&
                           inv.status !== 'cancelled' && (
-                            <SmallBtn
-                              $success
-                              onClick={() => markPaid(inv)}
-                            >
-                              <CheckCircle size={12} /> Paid
-                            </SmallBtn>
-                          )}
+                           <SmallBtn $success onClick={() => setPayTarget(inv)}>
+        <CheckCircle size={12} /> Paid
+      </SmallBtn>
+    )}
 
                         {/*  Receipt — shown once the invoice is paid */}
-                        {inv.status === 'paid' && (
+                      {inv.status === 'paid' && (
   <>
     <SmallBtn onClick={() => openReceipt(inv)} disabled={loadingReceiptFor === inv._id}>
       <FileCheck size={12} />
@@ -698,6 +767,9 @@ const handleRegenerateReceipt = async (inv) => {
     <SmallBtn onClick={() => handleRegenerateReceipt(inv)} disabled={regeneratingFor === inv._id}>
       <RefreshCw size={12} />
       {regeneratingFor === inv._id ? '…' : 'Regenerate'}
+    </SmallBtn>
+    <SmallBtn onClick={() => handleUnmarkPaid(inv)}>
+      <XCircle size={12} /> Unmark paid
     </SmallBtn>
   </>
 )}
@@ -719,13 +791,12 @@ const handleRegenerateReceipt = async (inv) => {
       {/* ── Modals ── */}
 
       {/* View modal */}
-      <InvoiceViewModal
-        open={!!viewTarget}
-        onClose={() => setViewTarget(null)}
-        invoice={viewTarget}
-        onRegenerate={handleRegenerateReceipt}
-        onSend={handleViewSend}
-      />
+     <InvoiceViewModal
+  open={!!viewTarget}
+  onClose={() => setViewTarget(null)}
+  invoice={viewTarget}
+  onSend={handleViewSend}
+/>
 
       {/* Receipt modal — shown right after marking paid, or reopened later */}
       <ReceiptViewModal
@@ -750,6 +821,13 @@ const handleRegenerateReceipt = async (inv) => {
         companies={companies}
         submitting={submitting}
       />
+      <MarkPaidModal
+  open={!!payTarget}
+  onClose={() => setPayTarget(null)}
+  onConfirm={handleConfirmMarkPaid}
+  invoice={payTarget}
+  submitting={submitting}
+/>
 
       <SendModal
         open={!!sendTarget}

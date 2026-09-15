@@ -259,6 +259,15 @@ export const AccountsProvider = ({ children, scope = 'stats' }) => {
     },
     [post],
   )
+
+  const unmarkInvoicePaid = useCallback(
+  async (id) => {
+    const data = await post(`${API_BASE}/invoices/${id}/unmark-paid`, {})
+    setInvoices((prev) => prev.map((inv) => (inv._id === id ? data.invoice : inv)))
+    return data.invoice
+  },
+  [post],
+)
   /* ── Initial fetch ──────────────────────────────────────────── */
 
   useEffect(() => {
@@ -300,6 +309,7 @@ export const AccountsProvider = ({ children, scope = 'stats' }) => {
         fetchInvoiceReceipt,
         regenerateReceipt,
         saveReceiptPdf,
+        unmarkInvoicePaid,
 
         // Stats
         fetchStats,

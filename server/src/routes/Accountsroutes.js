@@ -1,7 +1,7 @@
 import { verifyFirebaseToken } from '../middleware/verifyFirebaseToken.js'
 import { isStaff } from '../middleware/isStaff.js'
 import { isAdmin } from '../middleware/isAdmin.js'
-import { invoiceUpload } from '../middleware/upload.js' // ✅ use PDF-specific uploader
+import { invoiceUpload } from '../middleware/upload.js' 
 import {
   listQuotations,
   getQuotation,
@@ -23,6 +23,7 @@ import {
   getInvoiceReceipt,
   getReceipt,
   storeReceiptPDF,
+  unmarkInvoicePaid
 } from '../controllers/accounts.controller.js'
 
 /* ── Quotations ────────────────────────────────────────────── */
@@ -175,4 +176,12 @@ export const storeReceiptPDFRoute = {
   method: 'post',
   middleware: [verifyFirebaseToken, isStaff],
   handler: storeReceiptPDF,
+}
+
+
+export const unmarkInvoicePaidRoute = {
+  path: '/accounts/invoices/:id/unmark-paid',
+  method: 'post',
+  middleware: [verifyFirebaseToken, isAdmin], 
+  handler: unmarkInvoicePaid,
 }

@@ -756,6 +756,35 @@ export const getReceipt = async (req, res) => {
   }
 }
 
+/* ─── UNMARK INVOICE PAID (undo a mistaken payment) ──────── */
+
+/**
+ * Reverts a paid invoice back to 'sent' and deletes its receipt.
+ * The receipt is deleted rather than kept, so a future mark-paid
+ * generates a fresh one instead of the idempotency check reattaching
+ * stale payment data from the mistaken mark.
+ */
+export const unmarkInvoicePaid = async (req, res) => {
+  try {
+    const inv = await Invoice.findById(req.params.id)
+    if (!inv) return res.status(404).json({ error: 'Invoice not found' })
+    if (inv.status !== 'paid') {
+      return res.status(400).json({ error: 'Invoice is not marked as paid' })
+    }
+
+    await Receipt.deleteOne({ invoiceId: inv._id })
+
+    inv.status = 'sent'
+    inv.paidAt = null
+    await inv.save()
+
+    res.json({ invoice: inv.toObject() })
+  } catch (err) {
+    console.error('unmarkInvoicePaid error:', err)
+    res.status(500).json({ error: 'Failed to unmark invoice as paid' })
+  }
+}
+
 /**
  * Persist a client-rendered receipt PDF to disk, same pattern as
  * storeInvoicePDF, so it becomes downloadable from the client portal.
